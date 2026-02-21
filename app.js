@@ -298,3 +298,47 @@ botoesVoltar.forEach(([id, screen]) => {
 });
 
 window.onload = gerenciarEstadoInterface;
+
+// ==========================================
+// 7. LÓGICA DE INSTALAÇÃO PWA
+// ==========================================
+let deferredPrompt;
+const btnInstalar = document.getElementById('btn-instalar-pwa');
+
+// Captura o evento de instalação
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Impede o banner padrão do navegador
+    e.preventDefault();
+    // Guarda o evento para disparar depois
+    deferredPrompt = e;
+    // Mostra o card de instalação que criamos no HTML
+    if (btnInstalar) {
+        btnInstalar.classList.remove('hidden');
+    }
+});
+
+// Executa a instalação ao clicar no card
+if (btnInstalar) {
+    btnInstalar.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        
+        // Mostra o prompt de instalação (usará o ícone do manifest.json)
+        deferredPrompt.prompt();
+        
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`Usuário respondeu à instalação: ${outcome}`);
+        
+        // Limpa o evento e esconde o botão
+        deferredPrompt = null;
+        btnInstalar.classList.add('hidden');
+    });
+}
+
+// Esconde o botão se o app já estiver instalado
+window.addEventListener('appinstalled', () => {
+    console.log('PWA instalado com sucesso!');
+    if (btnInstalar) btnInstalar.classList.add('hidden');
+    deferredPrompt = null;
+});
+
+
