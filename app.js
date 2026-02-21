@@ -295,50 +295,135 @@ const botoesVoltar = [
 botoesVoltar.forEach(([id, screen]) => {
     const btn = document.getElementById(id);
     if(btn) btn.onclick = () => showScreen(screen);
+	
 });
 
 window.onload = gerenciarEstadoInterface;
 
 // ==========================================
-// 7. LÓGICA DE INSTALAÇÃO PWA
+// 8. EXPORTAÇÃO (PDF E EXCEL) REVISADA
 // ==========================================
-let deferredPrompt;
-const btnInstalar = document.getElementById('btn-instalar-pwa');
 
-// Captura o evento de instalação
-window.addEventListener('beforeinstallprompt', (e) => {
-    // Impede o banner padrão do navegador
-    e.preventDefault();
-    // Guarda o evento para disparar depois
-    deferredPrompt = e;
-    // Mostra o card de instalação que criamos no HTML
-    if (btnInstalar) {
-        btnInstalar.classList.remove('hidden');
-    }
-});
+// --- EXPORTAR PARA PDF (COM TOTAIS E LUCRO) ---
+document.getElementById('export-pdf').onclick = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const chaves = Object.keys(historico).reverse();
 
-// Executa a instalação ao clicar no card
-if (btnInstalar) {
-    btnInstalar.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
+    if (chaves.length === 0) return alert("Não há dados para exportar!");
+
+    let yPos = 20;
+    doc.setFontSize(16);
+    doc.text("Relatório Detalhado - Controle Diário", 14, yPos);
+    yPos += 10;
+
+    chaves.forEach((data) => {
+        const infoDia = historico[data];
         
-        // Mostra o prompt de instalação (usará o ícone do manifest.json)
-        deferredPrompt.prompt();
+        // Busca custos do dia para o cálculo
+        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || []).filter(a => a.data === data).reduce((acc, a) => acc + a.valor, 0);
+        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || []).filter(c => c.data === data).reduce((acc, c) => acc + c.valor, 0);
         
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`Usuário respondeu à instalação: ${outcome}`);
+        let totalKM = 0, totalApurado = 0, totalMinutos = 0;
+
+        // Prepara as linhas da tabela de sessões
+        const corpoTabela = infoDia.sessoes.map((s, idx) => {
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
+            totalApurado += s.apurado;
+            
+            // Cálculo de tempo
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+            totalMinutos += diff;
+
+            return [idx + 1, s.hI, s.hF, `${kmSessao} km`, `R$ ${s.apurado.toFixed(2)}` ];
+        });
+
+        const lucro = totalApurado - abast - outros;
+        const valorHora = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+        const tempoFmt = `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:${(totalMinutos%60).toString().padStart(2,'0')}h`;
+
+        // Verifica se precisa de nova página
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+        // Título do Dia
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.setFillColor(31, 41, 51);
+        doc.rect(14, yPos, 182, 7, 'F');
+        doc.text(`DATA: ${data}`, 16, yPos + 5);
         
-        // Limpa o evento e esconde o botão
-        deferredPrompt = null;
-        btnInstalar.classList.add('hidden');
+        // Tabela de sessões
+        doc.autoTable({
+            startY: yPos + 7,
+            head: [['Sessão', 'Início', 'Fim', 'KM', 'Apurado']],
+            body: corpoTabela,
+            theme: 'grid',
+            headStyles: { fillColor: [55, 65, 81] },
+            styles: { fontSize: 9 },
+            margin: { left: 14 }
+        });
+
+        yPos = doc.lastAutoTable.finalY + 6;
+        
+        // Resumo do Dia (O que você solicitou)
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        const resumo = [
+            `Intervalo Total: ${tempoFmt} | KM Total: ${totalKM} km`,
+            `Combustível: R$ ${abast.toFixed(2)} | Outros Custos: R$ ${outros.toFixed(2)}`,
+            `Total Apurado: R$ ${totalApurado.toFixed(2)}`,
+            `LUCRO DO DIA: R$ ${lucro.toFixed(2)} | MÉDIA: R$ ${valorHora.toFixed(2)}/h`
+        ];
+
+        resumo.forEach(linha => {
+            doc.text(linha, 14, yPos);
+            yPos += 5;
+        });
+
+        yPos += 7; // Espaço para o próximo dia
     });
-}
 
-// Esconde o botão se o app já estiver instalado
-window.addEventListener('appinstalled', () => {
-    console.log('PWA instalado com sucesso!');
-    if (btnInstalar) btnInstalar.classList.add('hidden');
-    deferredPrompt = null;
-});
+    doc.save(`Relatorio_Controle_Diario.pdf`);
+};
+
+// --- EXPORTAR PARA EXCEL (CSV DETALHADO) ---
+document.getElementById('export-excel').onclick = () => {
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const chaves = Object.keys(historico).reverse();
+    if (chaves.length === 0) return alert("Não há dados!");
+
+    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h\n";
+
+    chaves.forEach(data => {
+        const info = historico[data];
+        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || []).filter(a => a.data === data).reduce((acc, a) => acc + a.valor, 0);
+        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || []).filter(c => c.data === data).reduce((acc, c) => acc + c.valor, 0);
+        
+        let totalKM = 0, totalApurado = 0, totalMin = 0;
+        info.sessoes.forEach(s => {
+            totalKM += (s.kF - s.kI);
+            totalApurado += s.apurado;
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+            let d = (hF * 60 + mF) - (hI * 60 + mI);
+            if (d < 0) d += 1440;
+            totalMin += d;
+        });
+
+        const lucro = totalApurado - abast - outros;
+        const vh = totalMin > 0 ? lucro / (totalMin / 60) : 0;
+        const tempo = `${Math.floor(totalMin/60)}h${totalMin%60}m`;
+
+        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${vh.toFixed(2)}\n`;
+    });
+
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    saveAs(blob, `Relatorio_Controle_Diario.csv`);
+};
 
 
