@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle Diário</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="visual.css">
+</head>
+
+<body>
+<main class="app">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <h1>Bem-vindo</h1>
+    <p id="status-indicador">🔴 Turno inativo</p>
+
+    <div class="datetime">
+      <span id="current-date"></span>
+      <span id="current-time"></span>
+    </div>
+  </header>
+
+  <!-- MENU PRINCIPAL -->
+  <section class="menu" id="menu-principal">
+
+    <button class="menu-card" data-action="turno">
+      <div class="icon icon-turno">🚗</div>
+      <div class="text">
+        <h2>Gerenciar Turno</h2>
+        <p>Inicie, acompanhe e finalize seu turno</p>
+      </div>
+    </button>
+
+    <button class="menu-card" data-action="custos">
+      <div class="icon icon-custos">💸</div>
+      <div class="text">
+        <h2>Custos</h2>
+        <p>Registre combustível e despesas</p>
+      </div>
+    </button>
+
+    <button class="menu-card" data-action="resumos">
+      <div class="icon icon-resumo">📊</div>
+      <div class="text">
+        <h2>Resumos</h2>
+        <p>Resultados e histórico</p>
+      </div>
+    </button>
+
+    <button class="menu-card" data-action="metas">
+      <div class="icon icon-metas">🎯</div>
+      <div class="text">
+        <h2>Metas</h2>
+        <p>Objetivos diários</p>
+      </div>
+    </button>
+
+    <button class="menu-card" data-action="manutencao">
+      <div class="icon icon-manutencao">🛠️</div>
+      <div class="text">
+        <h2>Manutenção</h2>
+        <p>Alertas do veículo</p>
+      </div>
+    </button>
+
+  </section>
+
+  <!-- MENU TURNO -->
+  <section class="screen hidden" id="screen-menu-turno">
+
+  <h2 class="screen-title">Gerenciar Turno</h2>
+
+  <div class="screen-actions">
+
+    <button class="btn btn-primary" id="btn-ir-iniciar-turno">
+      Iniciar Turno
+    </button>
+
+    <button class="btn btn-danger" id="btn-ir-finalizar-turno">
+      Finalizar Turno
+    </button>
+
+    <button class="btn btn-back" id="voltar-menu-principal">
+      ← Voltar
+    </button>
+	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+
+  </div>
+
+</section>
+
+  <!-- INICIAR TURNO -->
+  <section class="screen hidden" id="screen-turno">
+    <h2 class="screen-title">Iniciar Turno</h2>
+
+    <div class="form-group">
+      <label>Hora inicial</label>
+      <div class="inline">
+		<input type="time" id="hora-inicio">
+		<button type="button" class="btn-secondary" id="btn-hora-atual">Agora</button>
+		</div>
+    </div>
+
+    <div class="form-group">
+      <label>KM inicial</label>
+      <input type="number" id="km-inicial">
+    </div>
+
+    <button class="btn btn-primary" id="btn-iniciar-turno">Iniciar Turno</button>
+    <p class="status-message" id="status-turno"></p>
+    <button class="btn btn-back" id="voltar-menu-turno">← Voltar</button>
+	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+  </section>
+  
+
+  <!-- FINALIZAR TURNO -->
+  <section class="screen hidden" id="screen-finalizar-turno">
+    <h2 class="screen-title">Finalizar Turno</h2>
+
+    <div class="form-group">
+      <label>Hora final</label>
+      <div class="inline">
+		<input type="time" id="hora-fim">
+		<button type="button" class="btn-secondary" id="btn-hora-final-atual">Agora</button>
+		</div>
+    </div>
+
+    <div class="form-group">
+      <label>KM final</label>
+      <input type="number" id="km-final">
+    </div>
+
+    <div class="form-group">
+      <label>Apurado (R$)</label>
+      <input type="number" id="apurado" step="0.01">
+    </div>
+
+<button class="btn btn-primary" id="btn-finalizar-turno">Finalizar Turno</button>
+    <p class="status-message" id="status-finalizar"></p>
+<button class="btn btn-back" id="voltar-menu-finalizar">← Voltar</button>
+<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+  </section>
+
+  <!-- MENU CUSTOS -->
+  <!-- MENU CUSTOS (PRINCIPAL) -->
+<section class="screen hidden" id="screen-menu-custos">
+  <h2 class="screen-title">Custos</h2>
+  <div class="screen-actions">
+    <button class="btn btn-primary" id="btn-ir-abastecimento">Abastecimento</button>
+    <button class="btn btn-warning" id="btn-ir-outros-custos">Outros Custos</button>
+    <button class="btn btn-back" id="voltar-custos-principal">← Voltar</button>
+	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+  </div>
+</section>
+
+<!-- TELA: ABASTECIMENTO -->
+<section class="screen hidden" id="screen-abastecimento">
+  <h2 class="screen-title">Abastecimento</h2>
+  <div class="form-group">
+    <label>Valor do Abastecimento (R$)</label>
+    <input type="number" id="valor-abastecimento" placeholder="Ex: 50.00" step="0.01">
+  </div>
+  <button class="btn btn-primary" id="btn-salvar-abastecimento">Inserir Abastecimento</button>
+  
+  <div class="resumo-custo" style="margin-top:20px; text-align:center;">
+    <p>Total abastecido hoje:</p>
+    <h3 id="total-abastecido-dia">R$ 0,00</h3>
+  </div>
+  
+  <button class="btn btn-back" id="voltar-menu-custos-abast">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA: OUTROS CUSTOS -->
+<section class="screen hidden" id="screen-outros-custos">
+  <h2 class="screen-title">Outros Custos</h2>
+  
+  <div class="form-group">
+    <label>Tipo de Custo</label>
+    <select id="tipo-custo" class="btn-secondary" style="width:100%; padding:12px; margin-bottom:10px;">
+      <option value="Agua">Água</option>
+      <option value="Alimentacao">Alimentação</option>
+      <option value="Estacionamento">Estacionamento</option>
+      <option value="Outros">Outros (Descrever)</option>
+    </select>
+  </div>
+
+  <div class="form-group hidden" id="group-desc-outros">
+    <label>Descrição</label>
+    <input type="text" id="desc-custo-outros" placeholder="Ex: Almoço no Zé">
+  </div>
+
+  <div class="form-group">
+    <label>Valor (R$)</label>
+    <input type="number" id="valor-custo-outro" step="0.01">
+  </div>
+
+  <button class="btn btn-warning" id="btn-salvar-custo-outro">Adicionar Custo</button>
+
+  <div class="lista-custos-container" style="margin-top:20px;">
+    <p>Total de custos: <strong id="total-outros-valor">R$ 0,00</strong></p>
+    <ul id="lista-detalhada-custos" style="list-style:none; padding:0; margin-top:10px;">
+      <!-- Itens entrarão aqui via JS -->
+    </ul>
+  </div>
+
+  <button class="btn btn-back" id="voltar-menu-custos-outros">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA ESCOLHA RESUMOS -->
+<section class="screen hidden" id="screen-resumos">
+  <h2 class="screen-title">Resumos</h2>
+  <div class="screen-actions">
+    <button class="btn btn-primary" id="btn-resumo-diario">Resumo Diário</button>
+    <button class="btn btn-primary" id="btn-historico-geral">Histórico Geral</button>
+    <button class="btn btn-back" id="voltar-menu-resumos">← Voltar</button>
+	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+  </div>
+</section>
+
+<!-- TELA RESUMO DIÁRIO -->
+<section class="screen hidden" id="screen-resumo-diario">
+  <h2 class="screen-title">Resumo Diário</h2>
+  <div class="resumo-dia">
+    <p><strong>Intervalo total:</strong> <span id="resumo-intervalo">--:--</span></p>
+    <p><strong>KM total rodado:</strong> <span id="resumo-km">0</span> km</p>
+    <p><strong>Total Abastecido:</strong> R$ <span id="resumo-abastecimento">0,00</span></p>
+    <p><strong>Outros Custos:</strong> R$ <span id="resumo-outros">0,00</span></p>
+    <p><strong>Valor Apurado:</strong> R$ <span id="resumo-apurado">0,00</span></p>
+    <p><strong>Lucro do Dia:</strong> R$ <span id="resumo-lucro">0,00</span></p>
+    <p><strong>Valor Médio da Hora:</strong> R$ <span id="resumo-hora">0,00</span> /h</p>
+  </div>
+  <button class="btn btn-back" id="voltar-resumo-diario">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA HISTÓRICO GERAL -->
+<section class="screen hidden" id="screen-historico-geral">
+  <h2 class="screen-title">Histórico Geral</h2>
+  
+  <div class="historico-botoes">
+    <button class="btn btn-warning" id="export-pdf">Exportar PDF</button>
+    <button class="btn btn-warning" id="export-excel">Exportar Excel</button>
+  </div>
+
+  <ul id="lista-historico" style="list-style:none; padding:0; margin-top:10px;">
+    <!-- Cada turno será exibido aqui via JS -->
+  </ul>
+
+  <button class="btn btn-back" id="voltar-historico">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+
+
+</main>
+
+<script src="app.js"></script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Service Worker registrado!', reg))
+        .catch(err => console.log('Erro ao registrar Service Worker', err));
+    });
+  }
+</script>
+
+</body>
+</html>
