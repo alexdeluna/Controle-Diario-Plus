@@ -144,17 +144,27 @@
 <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
   </section>
 
-  <!-- MENU CUSTOS -->
-  <!-- MENU CUSTOS (PRINCIPAL) -->
+<!-- MENU CUSTOS (PRINCIPAL) COM RESUMO -->
 <section class="screen hidden" id="screen-menu-custos">
   <h2 class="screen-title">Custos</h2>
+  
+  <!-- NOVO BLOCO DE RESUMO RÁPIDO -->
+  <div class="resumo-dia" style="background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+    <p style="font-size: 14px; opacity: 0.8;">Resumo de hoje:</p>
+    <p>⛽ Abastecimento: <strong id="resumo-custo-abast">R$ 0,00</strong></p>
+    <p>🍕 Outros Custos: <strong id="resumo-custo-outros">R$ 0,00</strong></p>
+    <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--gray);">
+    <p>💰 Total: <strong id="resumo-custo-total" style="color: var(--orange); font-size: 1.2em;">R$ 0,00</strong></p>
+  </div>
+
   <div class="screen-actions">
     <button class="btn btn-primary" id="btn-ir-abastecimento">Abastecimento</button>
     <button class="btn btn-warning" id="btn-ir-outros-custos">Outros Custos</button>
     <button class="btn btn-back" id="voltar-custos-principal">← Voltar</button>
-	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+    <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
   </div>
 </section>
+
 
 <!-- TELA: ABASTECIMENTO -->
 <section class="screen hidden" id="screen-abastecimento">
@@ -255,7 +265,94 @@
   <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
 </section>
 
+<!-- TELA: MENU DE METAS -->
+<section class="screen hidden" id="screen-metas">
+  <h2 class="screen-title">Metas</h2>
+  <div class="screen-actions">
+    <button class="btn btn-primary" id="btn-meta-mensal">📅 Meta Mensal</button>
+    <button class="btn btn-primary" id="btn-meta-semanal">🗓️ Meta Semanal</button>
+    <button class="btn btn-primary" id="btn-meta-diaria">☀️ Meta Diária</button>
+    <button class="btn btn-primary" id="btn-meta-por-data">🎯 Meta por Data e Valor</button>
+  </div>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
 
+<!-- TELA: FORMULÁRIO META MENSAL -->
+<section class="screen hidden" id="screen-meta-mensal">
+  <h2 class="screen-title">Meta Mensal</h2>
+  <div class="form-group">
+    <label>Valor da Meta Mensal (R$)</label>
+    <input type="number" id="input-meta-mensal" placeholder="Ex: 5000.00">
+  </div>  
+  <button class="btn btn-primary" id="btn-salvar-meta-mensal">Definir Meta</button>
+  
+  <!-- Onde o cálculo "Faltam R$ XXX" aparece -->
+  <div id="progresso-mensal" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; min-height: 50px;">
+    <p style="opacity:0.5; text-align:center;">Aguardando definição de meta...</p>
+  </div>
+  
+  <button class="btn btn-back" id="voltar-metas-mensal">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA: FORMULÁRIO META SEMANAL -->
+<section class="screen hidden" id="screen-meta-semanal">
+  <h2 class="screen-title">Meta Semanal</h2>
+  <div class="form-group">
+    <label>Valor da Meta Semanal (R$)</label>
+    <input type="number" id="input-meta-semanal" placeholder="Ex: 1500.00">
+  </div>
+  <button class="btn btn-primary" id="btn-salvar-meta-semanal">Definir Meta</button>
+  
+  <div id="progresso-semanal" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; min-height: 50px;">
+    <p style="opacity:0.5; text-align:center;">Aguardando definição de meta...</p>
+  </div>
+  
+  <button class="btn btn-back" id="voltar-metas-semanal">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA: FORMULÁRIO META DIÁRIA -->
+<section class="screen hidden" id="screen-meta-diaria">
+  <h2 class="screen-title">Meta Diária</h2>
+  <div class="form-group">
+    <label>Meta para Hoje (R$)</label>
+    <input type="number" id="input-meta-diaria" placeholder="Ex: 300.00">
+  </div>
+  <button class="btn btn-primary" id="btn-salvar-meta-diaria">Definir Meta</button>
+  
+  <div id="progresso-diario" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; text-align: center; min-height: 50px;">
+    <p style="opacity:0.5;">Aguardando definição de meta...</p>
+  </div>
+  
+  <button class="btn btn-back" id="voltar-metas-diaria">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
+
+<!-- TELA: FORMULÁRIO META POR DATA E VALOR -->
+<section class="screen hidden" id="screen-meta-data-valor">
+  <h2 class="screen-title">Meta por Data</h2>
+  <div class="form-group">
+    <label>Título (Ex: Cartão Visa)</label>
+    <input type="text" id="meta-data-titulo" placeholder="Nome da meta">
+  </div>
+  <div class="form-group">
+    <label>Valor Alvo (R$)</label>
+    <input type="number" id="meta-data-valor" placeholder="1350.00">
+  </div>
+  <div class="form-group">
+    <label>Data Limite</label>
+    <input type="date" id="meta-data-limite">
+  </div>
+  <button class="btn btn-primary" id="btn-salvar-meta-data">Criar Meta Especial</button>
+
+  <div id="lista-metas-data" style="margin-top:20px;">
+    <!-- Lista de metas individuais aparecerá aqui via renderizarMetasPorData() -->
+  </div>
+
+  <button class="btn btn-back" id="voltar-metas-data">← Voltar</button>
+  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+</section>
 
 </main>
 
