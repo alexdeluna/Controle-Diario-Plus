@@ -11,8 +11,14 @@ const screens = {
     outrosCustos: document.getElementById('screen-outros-custos'),
     resumos: document.getElementById('screen-resumos'),
     resumoDiario: document.getElementById('screen-resumo-diario'),
-    historicoGeral: document.getElementById('screen-historico-geral')
-};
+    historicoGeral: document.getElementById('screen-historico-geral'),
+	metas: document.getElementById('screen-metas'),
+    metaMensal: document.getElementById('screen-meta-mensal'),
+    metaSemanal: document.getElementById('screen-meta-semanal'),
+    metaDiaria: document.getElementById('screen-meta-diaria'),
+    metaDataValor: document.getElementById('screen-meta-data-valor')
+	
+	};
 
 function showScreen(screen) {
     Object.values(screens).forEach(s => { if(s) s.classList.add('hidden'); });
@@ -114,7 +120,8 @@ document.getElementById('btn-salvar-abastecimento').onclick = () => {
     setData('abastecimentos', lista);
     
     document.getElementById('valor-abastecimento').value = "";
-    atualizarResumoAbastecimento();
+    atualizarPainelResumoCustos();
+	atualizarResumoAbastecimento();
     alert("Salvo!");
 };
 
@@ -137,7 +144,7 @@ document.getElementById('btn-salvar-custo-outro').onclick = () => {
     // LIMPEZA DOS CAMPOS APÓS ADICIONAR
     valorInput.value = '';
     descInput.value = ''; // Esta linha limpa a descrição
-    
+    atualizarPainelResumoCustos();
     atualizarListaCustos();
     alert("Custo adicionado!");
 };
@@ -248,8 +255,17 @@ document.querySelectorAll('.menu-card').forEach(card => {
     card.onclick = () => {
         const action = card.dataset.action;
         if (action === 'turno') showScreen(screens.menuTurno);
-        if (action === 'custos') { showScreen(screens.custos); atualizarResumoAbastecimento(); atualizarListaCustos(); }
+        
+        if (action === 'custos') { 
+            // 1. Atualiza o Resumo Geral (o novo painel que você pediu)
+            atualizarPainelResumoCustos();             
+            // 2. Deixa as subtelas prontas caso o motorista clique nelas
+            atualizarResumoAbastecimento(); 
+            atualizarListaCustos();             
+            showScreen(screens.custos); 
+        }
         if (action === 'resumos') showScreen(screens.resumos);
+		if (action === 'metas') showScreen(screens.metas);
     };
 });
 
@@ -287,10 +303,20 @@ document.getElementById('tipo-custo').onchange = (e) => document.getElementById(
 
 // Botões Voltar
 const botoesVoltar = [
-    ['voltar-menu-principal', screens.menu], ['voltar-menu-turno', screens.menuTurno],
-    ['voltar-menu-finalizar', screens.menuTurno], ['voltar-custos-principal', screens.menu],
-    ['voltar-menu-custos-abast', screens.custos], ['voltar-menu-custos-outros', screens.custos],
-    ['voltar-menu-resumos', screens.menu], ['voltar-resumo-diario', screens.resumos], ['voltar-historico', screens.resumos]
+    ['voltar-menu-principal', screens.menu],
+	['voltar-menu-turno', screens.menuTurno],
+    ['voltar-menu-finalizar', screens.menuTurno],
+	['voltar-custos-principal', screens.menu],
+    ['voltar-menu-custos-abast', screens.custos],
+	['voltar-menu-custos-outros', screens.custos],
+    ['voltar-menu-resumos', screens.menu],
+	['voltar-resumo-diario', screens.resumos],
+	['voltar-historico', screens.resumos],
+	//['voltar-menu-metas', screens.menu],
+	['voltar-metas-mensal', screens.metas],
+    ['voltar-metas-semanal', screens.metas],
+    ['voltar-metas-diaria', screens.metas],
+    ['voltar-metas-data', screens.metas]
 ];
 botoesVoltar.forEach(([id, screen]) => {
     const btn = document.getElementById(id);
@@ -427,3 +453,185 @@ document.getElementById('export-excel').onclick = () => {
 };
 
 
+function atualizarPainelResumoCustos() {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    
+    // Soma Abastecimentos
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const totalAbast = abastecimentos
+        .filter(a => a.data === hoje)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    // Soma Outros Custos
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    const totalOutros = outros
+        .filter(c => c.data === hoje)
+        .reduce((acc, c) => acc + c.valor, 0);
+
+    // Atualiza o HTML
+    const abastEl = document.getElementById('resumo-custo-abast');
+    const outrosEl = document.getElementById('resumo-custo-outros');
+    const totalEl = document.getElementById('resumo-custo-total');
+
+    if(abastEl) abastEl.textContent = `R$ ${totalAbast.toFixed(2).replace('.', ',')}`;
+    if(outrosEl) outrosEl.textContent = `R$ ${totalOutros.toFixed(2).replace('.', ',')}`;
+    if(totalEl) totalEl.textContent = `R$ ${(totalAbast + totalOutros).toFixed(2).replace('.', ',')}`;
+}
+
+
+// Função que realiza as somas (adicione ao final do arquivo)
+function atualizarPainelResumoCustos() {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    
+    // Soma Abastecimentos
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const totalAbast = abastecimentos
+        .filter(a => a.data === hoje)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    // Soma Outros Custos
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    const totalOutros = outros
+        .filter(c => c.data === hoje)
+        .reduce((acc, c) => acc + c.valor, 0);
+
+    // Escreve os valores no HTML (IDs batendo com o passo 1)
+    const abastEl = document.getElementById('resumo-custo-abast');
+    const outrosEl = document.getElementById('resumo-custo-outros');
+    const totalEl = document.getElementById('resumo-custo-total');
+
+    if(abastEl) abastEl.textContent = `R$ ${totalAbast.toFixed(2).replace('.', ',')}`;
+    if(outrosEl) outrosEl.textContent = `R$ ${totalOutros.toFixed(2).replace('.', ',')}`;
+    if(totalEl) totalEl.textContent = `R$ ${(totalAbast + totalOutros).toFixed(2).replace('.', ',')}`;
+}
+
+// ==========================================
+// 9. LÓGICA DE METAS (PADRÃO VISUAL APP)
+// ==========================================
+
+// --- NAVEGAÇÃO DOS BOTÕES DO MENU DE METAS ---
+document.getElementById('btn-meta-mensal').onclick = () => { showScreen(screens.metaMensal); atualizarProgressoMeta('mensal'); };
+document.getElementById('btn-meta-semanal').onclick = () => { showScreen(screens.metaSemanal); atualizarProgressoMeta('semanal'); };
+document.getElementById('btn-meta-diaria').onclick = () => { showScreen(screens.metaDiaria); atualizarProgressoMeta('diario'); };
+document.getElementById('btn-meta-por-data').onclick = () => { showScreen(screens.metaDataValor); renderizarMetasPorData(); };
+
+// --- SALVAR VALORES DAS METAS ---
+const salvarMetaSimples = (tipo) => {
+    const input = document.getElementById(`input-meta-${tipo}`);
+    if(!input.value) return alert("Insira um valor!");
+    localStorage.setItem(`config_meta_${tipo}`, input.value);
+    atualizarProgressoMeta(tipo);
+    alert("Meta salva!");
+};
+
+if(document.getElementById('btn-salvar-meta-mensal')) document.getElementById('btn-salvar-meta-mensal').onclick = () => salvarMetaSimples('mensal');
+if(document.getElementById('btn-salvar-meta-semanal')) document.getElementById('btn-salvar-meta-semanal').onclick = () => salvarMetaSimples('semanal');
+if(document.getElementById('btn-salvar-meta-diaria')) document.getElementById('btn-salvar-meta-diaria').onclick = () => salvarMetaSimples('diaria');
+
+// --- ATUALIZAR INTERFACE DE PROGRESSO ---
+function atualizarProgressoMeta(tipo) {
+    const meta = parseFloat(localStorage.getItem(`config_meta_${tipo === 'diario' ? 'diaria' : tipo}`)) || 0;
+    const lucro = calcularLucroParaMeta(tipo); // Aquela função que já criamos
+    const falta = meta - lucro;
+    const container = document.getElementById(`progresso-${tipo}`);
+
+    if (!container) return;
+
+    if (tipo === 'diario') {
+        const cor = falta <= 0 ? "#4ade80" : "#fbbf24";
+        const msg = falta <= 0 ? "🎉 META BATIDA!" : "Meta não batida";
+        container.innerHTML = `<h2 style="color:${cor}">${msg}</h2><p>Lucro hoje: R$ ${lucro.toFixed(2)}</p><p>Faltam: R$ ${falta > 0 ? falta.toFixed(2) : '0,00'}</p>`;
+    } else {
+        container.innerHTML = `
+            <p>Sua meta: <strong>R$ ${meta.toFixed(2)}</strong></p>
+            <p>Lucro acumulado: <span style="color:#4ade80">R$ ${lucro.toFixed(2)}</span></p>
+            <h3 style="margin-top:10px; color:#fbbf24">${falta <= 0 ? "🎉 Meta Concluída!" : "Faltam: R$ " + falta.toFixed(2)}</h3>
+        `;
+    }
+}
+
+// --- LOGICA ESPECIFICA: META POR DATA E VALOR ---
+document.getElementById('btn-salvar-meta-data').onclick = () => {
+    const titulo = document.getElementById('meta-data-titulo').value;
+    const valor = parseFloat(document.getElementById('meta-data-valor').value);
+    const dataLimite = document.getElementById('meta-data-limite').value;
+
+    if(!titulo || !valor || !dataLimite) return alert("Preencha tudo!");
+
+    const lista = getData('metas_por_data');
+    lista.push({ id: Date.now(), titulo, valor, dataLimite });
+    setData('metas_por_data', lista);
+
+    renderizarMetasPorData();
+    // Limpar campos
+    document.getElementById('meta-data-titulo').value = '';
+    document.getElementById('meta-data-valor').value = '';
+};
+
+function renderizarMetasPorData() {
+    const lista = getData('metas_por_data');
+    const container = document.getElementById('lista-metas-data');
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    container.innerHTML = lista.map(m => {
+        const alvo = new Date(m.dataLimite + "T00:00:00");
+        const dias = Math.ceil((alvo - hoje) / (1000 * 60 * 60 * 24));
+        const diaria = dias > 0 ? (m.valor / dias) : m.valor;
+
+        return `
+            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue)">
+                <strong>${m.titulo}</strong> - R$ ${m.valor.toFixed(2)}
+                <p style="font-size:13px; margin:5px 0;">Data: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange)">Faltam ${dias} dias | Diária necessária: <strong>R$ ${diaria.toFixed(2)}</strong></p>
+            </div>
+        `;
+    }).join('');
+}
+
+// --- BOTÕES VOLTAR ---
+document.getElementById('voltar-meta-mensal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-semanal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-diaria').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-data').onclick = () => showScreen(screens.metas);
+
+function calcularLucroParaMeta(tipo) {
+    const hoje = new Date();
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastTotal = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outrosTotal = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    
+    let ganhos = 0;
+    let custos = 0;
+
+    // Regra de Filtro por período
+    const filtrarData = (dataStr) => {
+        const [d, m, y] = dataStr.split('/').map(Number);
+        const dataItem = new Date(y, m - 1, d);
+        
+        if (tipo === 'mensal') {
+            return dataItem.getMonth() === hoje.getMonth() && dataItem.getFullYear() === hoje.getFullYear();
+        }
+        if (tipo === 'semanal') {
+            const primeiro = hoje.getDate() - hoje.getDay();
+            const dataInicioSemana = new Date(new Date().setDate(primeiro));
+            dataInicioSemana.setHours(0,0,0,0);
+            return dataItem >= dataInicioSemana;
+        }
+        if (tipo === 'diario' || tipo === 'diaria') {
+            return dataStr === hoje.toLocaleDateString('pt-BR');
+        }
+        return false;
+    };
+
+    // 1. Soma Ganhos do histórico (Apurado)
+    Object.keys(historico).filter(filtrarData).forEach(data => {
+        historico[data].sessoes.forEach(s => ganhos += s.apurado);
+    });
+
+    // 2. Soma Custos (Combustível + Outros)
+    abastTotal.filter(a => filtrarData(a.data)).forEach(a => custos += a.valor);
+    outrosTotal.filter(c => filtrarData(c.data)).forEach(c => custos += c.valor);
+
+    return ganhos - custos; // Este é o LUCRO REAL
+}
