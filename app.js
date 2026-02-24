@@ -593,32 +593,53 @@ function renderizarMetasPorData() {
     const lista = getData('metas_por_data');
     const container = document.getElementById('lista-metas-data');
     const hoje = new Date();
-    hoje.setHours(0,0,0,0);
+    hoje.setHours(0, 0, 0, 0);
 
     if (lista.length === 0) {
-        container.innerHTML = '<p style="opacity:0.5; text-align:center;">Nenhuma meta agendada.</p>';
+        container.innerHTML = '<p style="opacity:0.5; text-align:center; padding:20px;">Nenhuma meta agendada.</p>';
         return;
     }
 
-    container.innerHTML = lista.map(m => {
+    // Variável para acumular a soma de todas as parcelas diárias
+    let esforçoDiarioTotal = 0;
+
+    // Gerar o HTML de cada card e calcular a soma
+    const htmlCards = lista.map(m => {
         const alvo = new Date(m.dataLimite + "T00:00:00");
         const diffMs = alvo - hoje;
         const dias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        const diaria = dias > 0 ? (m.valor / dias) : m.valor;
+        
+        // Cálculo da parcela individual (apenas se a meta não venceu)
+        const parcelaIndividual = dias > 0 ? (m.valor / dias) : 0;
+        
+        // Soma ao total acumulado
+        if (dias > 0) {
+            esforçoDiarioTotal += parcelaIndividual;
+        }
 
         return `
             <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue); position:relative;">
-                <!-- BOTÃO EXCLUIR (X) -->
-                <button onclick="excluirMetaPorData(${m.id})" style="position:absolute; top:10px; right:10px; background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; font-weight:bold;">&times;</button>
+                <button onclick="excluirMetaPorData(${m.id})" style="position:absolute; top:10px; right:10px; background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer;">&times;</button>
                 
                 <strong style="color:var(--white); display:block; margin-bottom:5px;">${m.titulo}</strong>
-                <p style="font-size:13px; margin:5px 0; opacity:0.8;">Objetivo: R$ ${m.valor.toFixed(2)}</p>
-                <p style="font-size:13px; margin:5px 0; opacity:0.8;">Data: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
-                <p style="color:var(--orange); font-weight:bold; margin-top:8px;">Faltam ${dias} dias | Diária: R$ ${diaria.toFixed(2)}</p>
+                <p style="font-size:13px; margin:2px 0; opacity:0.8;">Total: R$ ${m.valor.toFixed(2)} | Alvo: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange); font-size:13px; font-weight:bold;">Parcela desta meta: R$ ${parcelaIndividual.toFixed(2)}/dia</p>
             </div>
         `;
     }).join('');
+
+    // Criar o Card de Resumo (O Esforço Total)
+    const cardResumo = `
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px solid var(--blue); padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 10px;">Esforço Diário Total</p>
+            <h2 style="color: #4ade80; font-size: 28px; margin: 0;">R$ ${esforçoDiarioTotal.toFixed(2)}</h2>
+            <p style="font-size: 12px; opacity: 0.6; margin-top: 10px;">Lucro necessário hoje para bater as ${lista.length} metas</p>
+        </div>
+    `;
+
+    container.innerHTML = cardResumo + htmlCards;
 }
+
 
 // NOVA FUNÇÃO PARA EXCLUIR
 function excluirMetaPorData(id) {
