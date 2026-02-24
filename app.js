@@ -568,7 +568,7 @@ document.getElementById('btn-salvar-meta-data').onclick = () => {
     document.getElementById('meta-data-valor').value = '';
 };
 
-function renderizarMetasPorData() {
+/*function renderizarMetasPorData() {
     const lista = getData('metas_por_data');
     const container = document.getElementById('lista-metas-data');
     const hoje = new Date();
@@ -587,7 +587,51 @@ function renderizarMetasPorData() {
             </div>
         `;
     }).join('');
+}*/
+
+function renderizarMetasPorData() {
+    const lista = getData('metas_por_data');
+    const container = document.getElementById('lista-metas-data');
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    if (lista.length === 0) {
+        container.innerHTML = '<p style="opacity:0.5; text-align:center;">Nenhuma meta agendada.</p>';
+        return;
+    }
+
+    container.innerHTML = lista.map(m => {
+        const alvo = new Date(m.dataLimite + "T00:00:00");
+        const diffMs = alvo - hoje;
+        const dias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const diaria = dias > 0 ? (m.valor / dias) : m.valor;
+
+        return `
+            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue); position:relative;">
+                <!-- BOTÃO EXCLUIR (X) -->
+                <button onclick="excluirMetaPorData(${m.id})" style="position:absolute; top:10px; right:10px; background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; font-weight:bold;">&times;</button>
+                
+                <strong style="color:var(--white); display:block; margin-bottom:5px;">${m.titulo}</strong>
+                <p style="font-size:13px; margin:5px 0; opacity:0.8;">Objetivo: R$ ${m.valor.toFixed(2)}</p>
+                <p style="font-size:13px; margin:5px 0; opacity:0.8;">Data: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange); font-weight:bold; margin-top:8px;">Faltam ${dias} dias | Diária: R$ ${diaria.toFixed(2)}</p>
+            </div>
+        `;
+    }).join('');
 }
+
+// NOVA FUNÇÃO PARA EXCLUIR
+function excluirMetaPorData(id) {
+    if (!confirm("Deseja excluir esta meta permanentemente?")) return;
+    
+    let lista = getData('metas_por_data');
+    // Filtra a lista removendo o item com o ID clicado
+    lista = lista.filter(meta => meta.id !== id);
+    
+    setData('metas_por_data', lista);
+    renderizarMetasPorData(); // Atualiza a tela imediatamente
+}
+
 
 // --- BOTÕES VOLTAR ---
 document.getElementById('voltar-meta-mensal').onclick = () => showScreen(screens.metas);
