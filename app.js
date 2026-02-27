@@ -16,10 +16,7 @@ const screens = {
     metaMensal: document.getElementById('screen-meta-mensal'),
     metaSemanal: document.getElementById('screen-meta-semanal'),
     metaDiaria: document.getElementById('screen-meta-diaria'),
-    metaDataValor: document.getElementById('screen-meta-data-valor'),
-	manutencao: document.getElementById('screen-manutencao'),
-    manutVeicular: document.getElementById('screen-manut-veicular'),
-	manutData: document.getElementById('screen-manut-data')
+    metaDataValor: document.getElementById('screen-meta-data-valor')
 	
 	};
 
@@ -269,9 +266,6 @@ document.querySelectorAll('.menu-card').forEach(card => {
         }
         if (action === 'resumos') showScreen(screens.resumos);
 		if (action === 'metas') showScreen(screens.metas);
-		if (action === 'manutencao') showScreen(screens.manutencao);
-        
-       
     };
 });
 
@@ -298,22 +292,6 @@ document.getElementById('btn-historico-geral').onclick = () => {
     showScreen(screens.historicoGeral);
 };
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Agora o DOM está carregado, podemos adicionar o evento.
-
-const btnIrManut = document.getElementById('btn-ir-manut-veicular');
-if(btnIrManut) {
-    btnIrManut.onclick = () => {
-        showScreen(screens.manutVeicular);
-        // atualizarListaManutencao(); <- Chamaremos aqui no futuro
-    };
-}
-
-});
-// ==========================================
-// 7. BOTÕES
-// =========================================
-
 // Botões Auxiliares
 document.getElementById('btn-ir-iniciar-turno').onclick = () => showScreen(screens.iniciar);
 document.getElementById('btn-ir-finalizar-turno').onclick = () => showScreen(screens.finalizar);
@@ -334,15 +312,12 @@ const botoesVoltar = [
     ['voltar-menu-resumos', screens.menu],
 	['voltar-resumo-diario', screens.resumos],
 	['voltar-historico', screens.resumos],
+	//['voltar-menu-metas', screens.menu],
 	['voltar-metas-mensal', screens.metas],
     ['voltar-metas-semanal', screens.metas],
     ['voltar-metas-diaria', screens.metas],
-    ['voltar-metas-data', screens.metas],
-	['voltar-manut-principal', screens.menu],       // Volta da tela de opções de manutenção para o Menu Principal
-    ['voltar-manut-veicular', screens.manutencao],  // Volta da tela de formulário KM para o Menu de Manutenção
-    ['voltar-manut-data', screens.manutencao]       // Volta da tela de formulário Data para o Menu de Manutenção
+    ['voltar-metas-data', screens.metas]
 ];
-
 botoesVoltar.forEach(([id, screen]) => {
     const btn = document.getElementById(id);
     if(btn) btn.onclick = () => showScreen(screen);
@@ -478,6 +453,31 @@ document.getElementById('export-excel').onclick = () => {
 };
 
 
+function atualizarPainelResumoCustos() {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    
+    // Soma Abastecimentos
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const totalAbast = abastecimentos
+        .filter(a => a.data === hoje)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    // Soma Outros Custos
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    const totalOutros = outros
+        .filter(c => c.data === hoje)
+        .reduce((acc, c) => acc + c.valor, 0);
+
+    // Atualiza o HTML
+    const abastEl = document.getElementById('resumo-custo-abast');
+    const outrosEl = document.getElementById('resumo-custo-outros');
+    const totalEl = document.getElementById('resumo-custo-total');
+
+    if(abastEl) abastEl.textContent = `R$ ${totalAbast.toFixed(2).replace('.', ',')}`;
+    if(outrosEl) outrosEl.textContent = `R$ ${totalOutros.toFixed(2).replace('.', ',')}`;
+    if(totalEl) totalEl.textContent = `R$ ${(totalAbast + totalOutros).toFixed(2).replace('.', ',')}`;
+}
+
 
 // Função que realiza as somas (adicione ao final do arquivo)
 function atualizarPainelResumoCustos() {
@@ -568,6 +568,27 @@ document.getElementById('btn-salvar-meta-data').onclick = () => {
     document.getElementById('meta-data-valor').value = '';
 };
 
+/*function renderizarMetasPorData() {
+    const lista = getData('metas_por_data');
+    const container = document.getElementById('lista-metas-data');
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    container.innerHTML = lista.map(m => {
+        const alvo = new Date(m.dataLimite + "T00:00:00");
+        const dias = Math.ceil((alvo - hoje) / (1000 * 60 * 60 * 24));
+        const diaria = dias > 0 ? (m.valor / dias) : m.valor;
+
+        return `
+            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue)">
+                <strong>${m.titulo}</strong> - R$ ${m.valor.toFixed(2)}
+                <p style="font-size:13px; margin:5px 0;">Data: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange)">Faltam ${dias} dias | Diária necessária: <strong>R$ ${diaria.toFixed(2)}</strong></p>
+            </div>
+        `;
+    }).join('');
+}*/
+
 function renderizarMetasPorData() {
     const lista = getData('metas_por_data');
     const container = document.getElementById('lista-metas-data');
@@ -632,379 +653,50 @@ function excluirMetaPorData(id) {
     renderizarMetasPorData(); // Atualiza a tela imediatamente
 }
 
-// ==========================================
-// INICIALIZAÇÃO SEGURA DO DOM
-// ==========================================
 
-document.addEventListener('DOMContentLoaded', function () {
+// --- BOTÕES VOLTAR ---
+document.getElementById('voltar-meta-mensal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-semanal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-diaria').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-data').onclick = () => showScreen(screens.metas);
 
-    // ==========================================
-    // BOTÕES VOLTAR (PROTEGIDOS)
-    // ==========================================
+function calcularLucroParaMeta(tipo) {
+    const hoje = new Date();
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastTotal = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outrosTotal = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    
+    let ganhos = 0;
+    let custos = 0;
 
-    const voltarMetaMensal = document.getElementById('voltar-meta-mensal');
-    const voltarMetaSemanal = document.getElementById('voltar-meta-semanal');
-    const voltarMetaDiaria = document.getElementById('voltar-meta-diaria');
-    const voltarMetaData = document.getElementById('voltar-meta-data');
-
-    if (voltarMetaMensal) voltarMetaMensal.onclick = () => showScreen(screens.metas);
-    if (voltarMetaSemanal) voltarMetaSemanal.onclick = () => showScreen(screens.metas);
-    if (voltarMetaDiaria) voltarMetaDiaria.onclick = () => showScreen(screens.metas);
-    if (voltarMetaData) voltarMetaData.onclick = () => showScreen(screens.metas);
-
-    // ==========================================
-    // MANUTENÇÕES - DEFINIÇÕES OFICIAIS
-    // ==========================================
-
-    const MANUTENCOES_KM = {
-        OLEO: {
-            label: 'Troca de Óleo',
-            subcategorias: {
-                MOTOR: { label: 'Óleo do Motor' },
-                CAMBIO: { label: 'Óleo do Câmbio' }
-            }
-        },
-        FILTROS: {
-            label: 'Filtros',
-            subcategorias: {
-                OLEO: { label: 'Filtro de Óleo' },
-                AR_COND: { label: 'Filtro do Ar Condicionado' }
-            }
-        },
-        PNEUS: {
-            label: 'Pneus',
-            subcategorias: {
-                REPARO: { label: 'Reparo de Pneus' },
-                RODIZIO: { label: 'Rodízio de Pneus' }
-            }
-        },
-        ARREFECIMENTO: {
-            label: 'Arrefecimento',
-            subcategorias: {
-                SISTEMA: { label: 'Sistema de Arrefecimento' },
-                LIQUIDO: { label: 'Troca do Líquido de Arrefecimento' }
-            }
-        },
-        FREIOS: {
-            label: 'Sistema de Freios',
-            subcategorias: {
-                PASTILHA: { label: 'Pastilhas de Freio' },
-                DISCO: { label: 'Discos de Freio' },
-                FLUIDO: { label: 'Fluido de Freio' },
-                TAMBOR: { label: 'Freio a Tambor' }
-            }
-        },
-        SUSPENSAO: {
-            label: 'Suspensão',
-            subcategorias: {
-                AMORTECEDOR: { label: 'Amortecedores' },
-                MOLAS: { label: 'Molas' },
-                BUCHAS: { label: 'Buchas da Suspensão' },
-                BATENTE: { label: 'Batentes' }
-            }
-        },
-        CORREIAS: {
-            label: 'Correias',
-            subcategorias: {
-                DENTADA: { label: 'Correia Dentada' },
-                AUXILIAR: { label: 'Correia Auxiliar' },
-                TENSOR: { label: 'Tensor da Correia' }
-            }
-        },
-        TRANSMISSAO: {
-            label: 'Transmissão',
-            subcategorias: {
-                EMBREAGEM: { label: 'Embreagem' },
-                CAMBIO_MANUAL: { label: 'Câmbio Manual' },
-                CAMBIO_AUTOMATICO: { label: 'Câmbio Automático' },
-                DIFERENCIAL: { label: 'Diferencial' }
-            }
-        },
-        ELETRICA: {
-            label: 'Sistema Elétrico',
-            subcategorias: {
-                BATERIA: { label: 'Bateria' },
-                ALTERNADOR: { label: 'Alternador' },
-                MOTOR_PARTIDA: { label: 'Motor de Partida' },
-                ILUMINACAO: { label: 'Sistema de Iluminação' },
-                FUSIVEIS: { label: 'Fusíveis' }
-            }
-        }
-    };
-
-    // Torna global se precisar usar fora
-    window.MANUTENCOES_KM = MANUTENCOES_KM;
-
-    // ==========================================
-    // POPULAR SELECT DE CATEGORIAS
-    // ==========================================
-
-    const tipoSelect = document.getElementById('tipo-manutencao');
-    const subcategoriaSelect = document.getElementById('subcategoria-manutencao');
-
-    if (tipoSelect) {
-        tipoSelect.innerHTML = '<option value="">Selecione</option>';
-
-        Object.keys(MANUTENCOES_KM).forEach(categoriaKey => {
-            const option = document.createElement('option');
-            option.value = categoriaKey;
-            option.textContent = MANUTENCOES_KM[categoriaKey].label;
-            tipoSelect.appendChild(option);
-        });
-
-        // ==========================================
-        // 4.3 - CARREGAR SUBCATEGORIAS DINAMICAMENTE
-        // ==========================================
-
-        tipoSelect.addEventListener('change', function () {
-
-            if (!subcategoriaSelect) return;
-
-            const categoriaSelecionada = this.value;
-
-            subcategoriaSelect.innerHTML = '<option value="">Selecione</option>';
-
-            if (!categoriaSelecionada) return;
-
-            const subcategorias = MANUTENCOES_KM[categoriaSelecionada].subcategorias;
-
-            Object.keys(subcategorias).forEach(subKey => {
-                const option = document.createElement('option');
-                option.value = subKey;
-                option.textContent = subcategorias[subKey].label;
-                subcategoriaSelect.appendChild(option);
-            });
-        });
-    }
-
-});
-
-// ==========================================
-// 4.2 - SUBSTITUIÇÃO DE MANUTENÇÃO ANTERIOR
-// ==========================================
-
-function substituirManutencao(tipo, subcategoria, kmFinal, novaManut) {
-    // Recupera o histórico de manutenções
-    const historico = JSON.parse(localStorage.getItem('historico_manutencao')) || [];
-
-    // Encontra a manutenção anterior da mesma categoria e subcategoria
-    const manutencaoExistente = historico.find(manut => 
-        manut.categoria === tipo && manut.subcategoria === subcategoria
-    );
-
-    // Verifica se a manutenção já existe e se o KM final é maior que o registrado
-    if (manutencaoExistente && kmFinal > manutencaoExistente.kmUltimaTroca) {
-        // Substitui a manutenção anterior pela nova
-        const index = historico.indexOf(manutencaoExistente);
-        historico[index] = { ...novaManut, kmUltimaTroca: kmFinal };
+    // Regra de Filtro por período
+    const filtrarData = (dataStr) => {
+        const [d, m, y] = dataStr.split('/').map(Number);
+        const dataItem = new Date(y, m - 1, d);
         
-        // Atualiza o histórico no localStorage
-        localStorage.setItem('historico_manutencao', JSON.stringify(historico));
-
-        alert("✅ Manutenção substituída com sucesso!");
-    } else {
-        alert("⚠️ Não é necessário substituir a manutenção ou o KM ainda não é suficiente.");
-    }
-}
-
-// ==========================================
-// 4.3 - ALERTAS VISÍVEIS
-// ==========================================
-
-function exibirAlertaDeManutencao(manutencao) {
-    const alertaContainer = document.getElementById('alerta-manutencao');
-
-    if (!alertaContainer) return;
-
-    const alerta = document.createElement('div');
-    alerta.classList.add('alerta');
-    alerta.innerHTML = `
-        <strong>Manutenção: ${manutencao.label}</strong><br>
-        Status: ${manutencao.status}<br>
-        KM: ${manutencao.kmFinal} - ${manutencao.kmRestante}km restantes
-    `;
-
-    alertaContainer.appendChild(alerta);
-}
-
-// ==========================================
-// 9.1 MANUTENÇÃO VEICULAR (POR KM)
-// ==========================================
-
-// 2. Lógica "Outros" no Tipo de Manutenção (Aparecer campo de texto)
-const selectTipoManut = document.getElementById('tipo-manutencao');
-if(selectTipoManut) {
-    selectTipoManut.onchange = (e) => {
-        const campoOutros = document.getElementById('group-manut-outros');
-        if(campoOutros) campoOutros.classList.toggle('hidden', e.target.value !== 'Outros');
+        if (tipo === 'mensal') {
+            return dataItem.getMonth() === hoje.getMonth() && dataItem.getFullYear() === hoje.getFullYear();
+        }
+        if (tipo === 'semanal') {
+            const primeiro = hoje.getDate() - hoje.getDay();
+            const dataInicioSemana = new Date(new Date().setDate(primeiro));
+            dataInicioSemana.setHours(0,0,0,0);
+            return dataItem >= dataInicioSemana;
+        }
+        if (tipo === 'diario' || tipo === 'diaria') {
+            return dataStr === hoje.toLocaleDateString('pt-BR');
+        }
+        return false;
     };
+
+    // 1. Soma Ganhos do histórico (Apurado)
+    Object.keys(historico).filter(filtrarData).forEach(data => {
+        historico[data].sessoes.forEach(s => ganhos += s.apurado);
+    });
+
+    // 2. Soma Custos (Combustível + Outros)
+    abastTotal.filter(a => filtrarData(a.data)).forEach(a => custos += a.valor);
+    outrosTotal.filter(c => filtrarData(c.data)).forEach(c => custos += c.valor);
+
+    return ganhos - custos; // Este é o LUCRO REAL
 }
-
-// 3. Lógica "Outra KM" (Aparecer campo para digitar KM personalizada)
-const selectKmManut = document.getElementById('km-intervalo-select');
-if(selectKmManut) {
-    selectKmManut.onchange = (e) => {
-        const campoKmCustom = document.getElementById('group-manut-km-custom');
-        if(campoKmCustom) campoKmCustom.classList.toggle('hidden', e.target.value !== 'outra');
-    };
-}
-
-// 4. Lógica Parcelamento (Só aparece se for Crédito)
-const selectPagManut = document.getElementById('pag-manutencao');
-if(selectPagManut) {
-    selectPagManut.onchange = (e) => {
-        const campoParcelas = document.getElementById('group-manut-parcelas');
-        if(campoParcelas) campoParcelas.classList.toggle('hidden', e.target.value !== 'Credito');
-    };
-}
-
-const btnIrManutData = document.getElementById('btn-ir-manut-data');
-if(btnIrManutData) {
-    btnIrManutData.onclick = () => showScreen(screens.manutData);
-}
-
-// --- SALVAR MANUTENÇÃO POR KM ---
-document.getElementById('btn-salvar-manut-veicular').onclick = () => {
-    const tipo = document.getElementById('tipo-manutencao').value;
-    const descOutros = document.getElementById('desc-manut-outros').value;
-    const kmSelect = document.getElementById('km-intervalo-select').value;
-    const kmCustom = document.getElementById('km-manut-custom').value;
-    const valor = parseFloat(document.getElementById('valor-manutencao').value);
-    const pag = document.getElementById('pag-manutencao').value;
-    const parcelas = document.getElementById('parcelas-manutencao').value;
-
-    if (isNaN(valor)) return alert("Por favor, insira o valor do custo!");
-
-    // Define qual KM usar (Padrão ou Customizada)
-    const kmFinal = kmSelect === 'outra' ? kmCustom : kmSelect;
-
-   const novaManut = {
-    id: Date.now(),
-    data: new Date().toLocaleDateString('pt-BR'),
-
-    categoria: tipo === 'Outros' ? 'OUTROS' : tipo,
-    subcategoria: tipo === 'Outros' ? null : tipo,
-
-    descricaoLivre: tipo === 'Outros' ? descOutros : null,
-
-    kmIntervalo: tipo === 'Outros' ? null : Number(kmFinal),
-    kmUltimaTroca: getUltimoKmFinal(), // vamos validar isso depois
-
-    valor: valor,
-    pagamento: pag,
-    parcelas: pag === 'Credito' ? parcelas : '1'
-};
-
-    const lista = getData('historico_manutencao');
-    lista.push(novaManut);
-    setData('historico_manutencao', lista);
-
-    alert("✅ Manutenção salva com sucesso!");
-    
-    // Limpar campos
-    document.getElementById('valor-manutencao').value = "";
-    document.getElementById('desc-manut-outros').value = "";
-    
-    atualizarListaManutencao(); // Função que faremos a seguir para mostrar na tela
-};
-
-
-function atualizarListaManutencao() {
-    const lista = getData('historico_manutencao');
-    const container = document.getElementById('historico-manut-veicular');
-    
-    if (!container) return;
-
-    if (lista.length === 0) {
-        container.innerHTML = '<p style="opacity:0.5; text-align:center;">Nenhum registro encontrado.</p>';
-        return;
-    }
-
-    container.innerHTML = lista.reverse().map(m => `
-        <div style="background:var(--card); padding:12px; border-radius:10px; margin-bottom:10px; border-left:4px solid #ef4444;">
-            <div style="display:flex; justify-content:space-between; font-size:12px; opacity:0.7;">
-                <span>${m.data}</span>
-                <span>Prox: ${m.kmIntervalo} KM</span>
-            </div>
-            <strong style="display:block; margin:5px 0;">${m.tipo}</strong>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:#4ade80; font-weight:bold;">R$ ${m.valor.toFixed(2)}</span>
-                <span style="font-size:11px; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${m.pagamento}</span>
-            </div>
-        </div>
-    `).join('');F
-}
-
-// ==========================================
-// 10. MANUTENÇÃO POR DATA (GNV / SEGURO)
-// ==========================================
-
-// Função para Salvar
-const btnSalvarData = document.getElementById('btn-salvar-manut-data');
-if(btnSalvarData) {
-    btnSalvarData.onclick = () => {
-        const tipo = document.getElementById('tipo-manut-data').value;
-        const dataVenc = document.getElementById('data-manut-vencimento').value;
-        const valor = parseFloat(document.getElementById('valor-manut-data').value) || 0;
-
-        if (!dataVenc) return alert("Selecione a data de vencimento!");
-
-        const novoAlerta = {
-            id: Date.now(),
-            tipo: tipo,
-            vencimento: dataVenc,
-            valor: valor
-        };
-
-        const lista = getData('historico_manut_data');
-        lista.push(novoAlerta);
-        setData('historico_manut_data', lista);
-
-        alert("✅ Alerta agendado!");
-        document.getElementById('data-manut-vencimento').value = "";
-        document.getElementById('valor-manut-data').value = "";
-        renderizarListaManutData();
-    };
-}
-
-// Função para Renderizar (Desenhar na tela)
-function renderizarListaManutData() {
-    const lista = getData('historico_manut_data');
-    const container = document.getElementById('lista-manut-data');
-    if (!container) return;
-
-    if (lista.length === 0) {
-        container.innerHTML = '<p style="opacity:0.5; text-align:center; padding:20px;">Nenhum alerta cadastrado.</p>';
-        return;
-    }
-
-    container.innerHTML = lista.map(item => {
-        const dataFmt = new Date(item.vencimento + "T00:00:00").toLocaleDateString('pt-BR');
-        return `
-            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue); position:relative;">
-                <button onclick="excluirManutData(${item.id})" style="position:absolute; top:10px; right:10px; background:none; border:none; color:var(--red); font-size:20px; cursor:pointer;">&times;</button>
-                <strong style="color:var(--white)">${item.tipo}</strong>
-                <p style="font-size:14px; margin:5px 0;">Vencimento: <b style="color:var(--orange)">${dataFmt}</b></p>
-                <p style="font-size:12px; opacity:0.8;">Custo Estimado: R$ ${item.valor.toFixed(2)}</p>
-            </div>
-        `;
-    }).join('');
-}
-
-// Função para Excluir
-function excluirManutData(id) {
-    if(!confirm("Remover este alerta?")) return;
-    const novaLista = getData('historico_manut_data').filter(i => i.id !== id);
-    setData('historico_manut_data', novaLista);
-    renderizarListaManutData();
-}
-
-// VÍNCULO DO BOTÃO DE NAVEGAÇÃO: Carregar a lista ao abrir
-const btnAcessarData = document.getElementById('btn-ir-manut-data');
-if(btnAcessarData) {
-    btnAcessarData.onclick = () => {
-        showScreen(screens.manutData);
-        renderizarListaManutData(); // ✅ Agora a tela não abrirá vazia
-    };
-}
-
