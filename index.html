@@ -58,13 +58,13 @@
       </div>
     </button>
 
-    <button class="menu-card" data-action="manutencao">
+    <!--<button class="menu-card" data-action="manutencao">
       <div class="icon icon-manutencao">🛠️</div>
       <div class="text">
         <h2>Manutenção</h2>
         <p>Alertas do veículo</p>
       </div>
-    </button>
+    </button> -->
 
   </section>
 
@@ -353,102 +353,6 @@
   <button class="btn btn-back" id="voltar-metas-data">← Voltar</button>
   <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
 </section>
-
-<!-- TELA: MENU MANUTENÇÃO -->
-<section class="screen hidden" id="screen-manutencao">
-  <h2 class="screen-title">Manutenção</h2>
-  <!-- Contêiner de alertas de manutenção -->
-  <div id="alerta-manutencao" style="padding: 15px; background-color: #ffeb3b; border-radius: 8px; margin-bottom: 20px;">
-    <!-- Alertas vão aparecer aqui -->
-  </div>
-  
-  <div class="screen-actions">
-    <button class="btn btn-primary" id="btn-ir-manut-veicular">🛠️ Manutenção Veicular (KM)</button>
-    <button class="btn btn-primary" id="btn-ir-manut-data">📅 Manutenção por Data</button>
-    <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-  </div>
-</section>
-
-<!-- TELA: MANUTENÇÃO VEICULAR (KM) -->
-<section class="screen hidden" id="screen-manut-veicular">
-  <h2 class="screen-title">Registrar Manutenção</h2>
-  
-  <div class="form-group">
-    <label>Tipo de Manutenção</label>
-    <select id="tipo-manutencao">
-</select>
-  </div>
-  
-  <!-- Novo campo para subcategorias -->
-  <div class="form-group" id="subcategoria-container">
-    <label>Subcategoria</label>
-    <select id="subcategoria-manutencao" class="input-field">
-      <!-- Subcategorias serão preenchidas dinamicamente -->
-    </select>
-  </div>
-
-  <div class="form-group hidden" id="group-manut-outros">
-    <label>Descrição da Manutenção</label>
-    <input type="text" id="desc-manut-outros" placeholder="Ex: Troca de pastilhas">
-  </div>
-
-  <div class="form-group">
-    <label>Intervalo de KM (Padrão 10.000)</label>
-    <select id="km-intervalo-select" class="input-field">
-      <option value="10000">10.000 KM</option>
-      <option value="outra">Outra KM...</option>
-    </select>
-  </div>
-
-  <div class="form-group hidden" id="group-manut-km-custom">
-    <label>Informe a KM personalizada</label>
-    <input type="number" id="km-manut-custom" placeholder="Ex: 5000">
-  </div>
-
-  <div class="form-group">
-    <label>Custo da Manutenção (R$)</label>
-    <input type="number" id="valor-manutencao" step="0.01">
-  </div>
-
-  <div class="form-group">
-    <label>Forma de Pagamento</label>
-    <select id="pag-manutencao" class="input-field">
-      <option value="Dinheiro">Dinheiro</option>
-      <option value="Pix">Pix</option>
-      <option value="Debito">Débito</option>
-      <option value="Credito">Crédito</option>
-    </select>
-  </div>
-
-  <div class="form-group hidden" id="group-manut-parcelas">
-    <label>Parcelamento</label>
-    <select id="parcelas-manutencao" class="input-field">
-      <option value="1">À Vista</option>
-      <option value="2">2x</option>
-      <option value="3">3x</option>
-      <option value="4">4x ou mais</option>
-    </select>
-  </div>
-
-  <button class="btn btn-primary" id="btn-salvar-manut-veicular">Salvar Manutenção</button>
-  
-  <div id="historico-manut-veicular" style="margin-top:20px;">
-    <!-- Lista visual aqui -->
-  </div>
-
-  <button class="btn btn-back" id="voltar-manut-principal">← Voltar</button>
-</section>
-
-
-
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-<!-- TUDO NÃO MEXER DAQUI PRA BAIXO -->
-
 
 </main>
 
