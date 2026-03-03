@@ -219,6 +219,7 @@ function renderizarDia(data, infoDia) {
 
     const lucro = totalApurado - abast - outros;
     const valorHora = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+	const valorKm = totalKM > 0 ? lucro / totalKM : 0;
 
     // Retornamos o HTML com os Totais PRIMEIRO e as Sessões DEPOIS
     return `
@@ -237,6 +238,7 @@ function renderizarDia(data, infoDia) {
                 <span>Lucro do Dia:</span> <span>R$ ${lucro.toFixed(2).replace('.', ',')}</span>
             </p>
             <p><span>Média por Hora:</span> <strong>R$ ${valorHora.toFixed(2).replace('.',',')}/h</strong></p>
+			<p><span>Valor por KM:</span> <strong>R$ ${valorKm.toFixed(2).replace('.',',')}/km</strong></p>
             
             <hr>
             <!-- DETALHAMENTO DAS SESSÕES ABAIXO -->
@@ -371,6 +373,7 @@ document.getElementById('export-pdf').onclick = () => {
 
         const lucro = totalApurado - abast - outros;
         const valorHora = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+		const valorKm = totalKM > 0 ? lucro / totalKM : 0;
         const tempoFmt = `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:${(totalMinutos%60).toString().padStart(2,'0')}h`;
 
         // Verifica se precisa de nova página
@@ -403,7 +406,7 @@ document.getElementById('export-pdf').onclick = () => {
             `Intervalo Total: ${tempoFmt} | KM Total: ${totalKM} km`,
             `Combustível: R$ ${abast.toFixed(2)} | Outros Custos: R$ ${outros.toFixed(2)}`,
             `Total Apurado: R$ ${totalApurado.toFixed(2)}`,
-            `LUCRO DO DIA: R$ ${lucro.toFixed(2)} | MÉDIA: R$ ${valorHora.toFixed(2)}/h`
+            `LUCRO DO DIA: R$ ${lucro.toFixed(2)} | MÉDIA: R$ ${valorHora.toFixed(2)}/h | R$ ${valorKm.toFixed(2)}/km`
         ];
 
         resumo.forEach(linha => {
@@ -423,7 +426,7 @@ document.getElementById('export-excel').onclick = () => {
     const chaves = Object.keys(historico).reverse();
     if (chaves.length === 0) return alert("Não há dados!");
 
-    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h\n";
+    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h;Valor/km\n";
 
     chaves.forEach(data => {
         const info = historico[data];
@@ -443,9 +446,10 @@ document.getElementById('export-excel').onclick = () => {
 
         const lucro = totalApurado - abast - outros;
         const vh = totalMin > 0 ? lucro / (totalMin / 60) : 0;
+		const vkm = totalKM > 0 ? lucro / totalKM : 0;
         const tempo = `${Math.floor(totalMin/60)}h${totalMin%60}m`;
 
-        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${vh.toFixed(2)}\n`;
+        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${vh.toFixed(2)};${vkm.toFixed(2)}\n`;
     });
 
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
@@ -700,3 +704,4 @@ function calcularLucroParaMeta(tipo) {
 
     return ganhos - custos; // Este é o LUCRO REAL
 }
+
