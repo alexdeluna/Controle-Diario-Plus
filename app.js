@@ -191,63 +191,113 @@ function excluirSessao(data, id) {
 }
 
 function renderizarDia(data, infoDia) {
-    const abast = getData('abastecimentos').filter(a => a.data === data).reduce((acc, a) => acc + a.valor, 0);
-    const outros = getData('outros_custos').filter(c => c.data === data).reduce((acc, c) => acc + c.valor, 0);
+    const abast = getData('abastecimentos')
+        .filter(a => a.data === data)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    const outros = getData('outros_custos')
+        .filter(c => c.data === data)
+        .reduce((acc, c) => acc + c.valor, 0);
     
     let totalKM = 0;
     let totalApurado = 0;
     let totalMinutos = 0;
 
-    // Primeiro calculamos os totais percorrendo as sessões
     const sessoesHTML = infoDia.sessoes.map((s, index) => {
-        totalKM += (s.kF - s.kI);
+        const kmSessao = (s.kF - s.kI);
+        totalKM += kmSessao;
         totalApurado += s.apurado;
         
         const [hI, mI] = s.hI.split(':').map(Number);
         const [hF, mF] = s.hF.split(':').map(Number);
+
         let diff = (hF * 60 + mF) - (hI * 60 + mI);
         if (diff < 0) diff += 1440;
+
         totalMinutos += diff;
 
         return `
         <div style="font-size: 13px; color: var(--muted); background: rgba(0,0,0,0.1); padding: 8px; border-radius: 8px; margin-bottom: 8px; position: relative;">
             <strong>Sessão ${index + 1}:</strong> ${s.hI} às ${s.hF} | 
-            KM: ${s.kF - s.kI} | Apur: R$ ${s.apurado.toFixed(2)}
-            <button onclick="excluirSessao('${data}', ${s.id})" style="background:none; border:none; color:var(--red); font-size:18px; position:absolute; right:10px; top:5px; cursor:pointer;">&times;</button>
+            KM: ${kmSessao} | Apur: R$ ${s.apurado.toFixed(2).replace('.', ',')}
+            <button onclick="excluirSessao('${data}', ${s.id})"
+                style="background:none; border:none; color:var(--red); font-size:18px; position:absolute; right:10px; top:5px; cursor:pointer;">
+                &times;
+            </button>
         </div>`;
     }).join('');
 
     const lucro = totalApurado - abast - outros;
-    const valorHora = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
-	const valorKm = totalKM > 0 ? lucro / totalKM : 0;
+	
+	// CUSTOS TOTAIS
+const totalCustos = abast + outros;
 
-    // Retornamos o HTML com os Totais PRIMEIRO e as Sessões DEPOIS
+// CUSTO POR KM
+const custoPorKm = totalKM > 0 ? totalCustos / totalKM : 0;
+
+    // -------------------------
+    // MÉTRICAS BRUTAS (APURADO)
+    // -------------------------
+    const valorHoraBruto = totalMinutos > 0 ? totalApurado / (totalMinutos / 60) : 0;
+    const valorKmBruto = totalKM > 0 ? totalApurado / totalKM : 0;
+
+    // -------------------------
+    // MÉTRICAS LÍQUIDAS (LUCRO)
+    // -------------------------
+    const valorHoraLiquido = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+    const valorKmLiquido = totalKM > 0 ? lucro / totalKM : 0;
+
+    const intervaloFormatado =
+        `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:` +
+        `${(totalMinutos%60).toString().padStart(2,'0')}h`;
+
     return `
     <div class="resumo-card">
-        <div class="card-header"><span class="card-title">Resumo Diário</span><span class="card-date">${data}</span></div>
+        <div class="card-header">
+            <span class="card-title">Resumo Diário</span>
+            <span class="card-date">${data}</span>
+        </div>
+
         <div class="card-body">
-            <!-- TOTAIS NO TOPO -->
-            <p><span>Intervalo total:</span> <strong>${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:${(totalMinutos%60).toString().padStart(2,'0')}h</strong></p>
+
+            <p><span>Intervalo total:</span> <strong>${intervaloFormatado}</strong></p>
             <p><span>KM total rodado:</span> <strong>${totalKM} km</strong></p>
             <p><span>Total Abastecido:</span> <strong>R$ ${abast.toFixed(2).replace('.',',')}</strong></p>
             <p><span>Outros Custos:</span> <strong>R$ ${outros.toFixed(2).replace('.',',')}</strong></p>
             <p><span>Valor Apurado:</span> <strong>R$ ${totalApurado.toFixed(2).replace('.',',')}</strong></p>
-            
+
             <hr>
+
             <p style="color: ${lucro >= 0 ? '#4ade80' : '#ef4444'}; font-size: 18px; font-weight: bold;">
-                <span>Lucro do Dia:</span> <span>R$ ${lucro.toFixed(2).replace('.', ',')}</span>
+                <span>Lucro do Dia:</span> 
+                <span>R$ ${lucro.toFixed(2).replace('.', ',')}</span>
             </p>
-            <p><span>Média por Hora:</span> <strong>R$ ${valorHora.toFixed(2).replace('.',',')}/h</strong></p>
-			<p><span>Valor por KM:</span> <strong>R$ ${valorKm.toFixed(2).replace('.',',')}/km</strong></p>
-            
+
             <hr>
-            <!-- DETALHAMENTO DAS SESSÕES ABAIXO -->
-            <p style="font-size: 12px; text-transform: uppercase; color: var(--blue); margin-bottom: 10px; font-weight: bold;">Detalhamento de Sessões:</p>
+
+            <p style="font-size:14px; font-weight:bold; margin-top:10px;">📊 Produtividade Bruta (Apurado)</p>
+            <p>Média por Hora: <strong>R$ ${valorHoraBruto.toFixed(2).replace('.',',')}/h</strong></p>
+            <p>Valor por KM: <strong>R$ ${valorKmBruto.toFixed(2).replace('.',',')}/km</strong></p>
+
+            <hr>
+
+            <p style="font-size:14px; font-weight:bold; margin-top:10px;">💰 Rentabilidade Líquida (Lucro)</p>
+            <p>Média por Hora: <strong>R$ ${valorHoraLiquido.toFixed(2).replace('.',',')}/h</strong></p>
+            <p>Valor por KM: <strong>R$ ${valorKmLiquido.toFixed(2).replace('.',',')}/km</strong></p>
+
+            <hr>
+
+            <p style="font-size: 12px; text-transform: uppercase; color: var(--blue); margin-bottom: 10px; font-weight: bold;">
+                Detalhamento de Sessões:
+            </p>
+
             <div>${sessoesHTML}</div>
         </div>
     </div>`;
 }
 
+   
+    
 
 // ==========================================
 // 6. EVENTOS E NAVEGAÇÃO
@@ -704,4 +754,3 @@ function calcularLucroParaMeta(tipo) {
 
     return ganhos - custos; // Este é o LUCRO REAL
 }
-
