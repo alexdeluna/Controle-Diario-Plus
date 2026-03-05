@@ -1,5 +1,5 @@
 // ==========================================
-// 1. ESTADO E NAVEGAÇÃO
+// 1. ESTADO E NAVEGAÇÃO.
 // ==========================================
 const screens = {
     menu: document.getElementById('menu-principal'),
@@ -754,3 +754,4 @@ function calcularLucroParaMeta(tipo) {
 
     return ganhos - custos; // Este é o LUCRO REAL
 }
+
