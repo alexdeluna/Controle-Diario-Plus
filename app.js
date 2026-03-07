@@ -12,6 +12,7 @@ const screens = {
     resumos: document.getElementById('screen-resumos'),
     resumoDiario: document.getElementById('screen-resumo-diario'),
     historicoGeral: document.getElementById('screen-historico-geral'),
+	acompanhando: document.getElementById('screen-acompanhando-resultados'),
 	metas: document.getElementById('screen-metas'),
     metaMensal: document.getElementById('screen-meta-mensal'),
     metaSemanal: document.getElementById('screen-meta-semanal'),
@@ -104,6 +105,7 @@ document.getElementById('btn-finalizar-turno').onclick = () => {
     
     gerenciarEstadoInterface();
     alert("✅ Sessão salva no dia!");
+	atualizarResumoGeral();
     showScreen(screens.menu);
 };
 
@@ -122,6 +124,7 @@ document.getElementById('btn-salvar-abastecimento').onclick = () => {
     document.getElementById('valor-abastecimento').value = "";
     atualizarPainelResumoCustos();
 	atualizarResumoAbastecimento();
+	atualizarResumoGeral();
     alert("Salvo!");
 };
 
@@ -146,6 +149,7 @@ document.getElementById('btn-salvar-custo-outro').onclick = () => {
     descInput.value = ''; // Esta linha limpa a descrição
     atualizarPainelResumoCustos();
     atualizarListaCustos();
+	atualizarResumoGeral();
     alert("Custo adicionado!");
 };
 
@@ -318,6 +322,10 @@ document.querySelectorAll('.menu-card').forEach(card => {
         }
         if (action === 'resumos') showScreen(screens.resumos);
 		if (action === 'metas') showScreen(screens.metas);
+		if (action === 'acompanhando') {
+			atualizarPainelResultados();
+			showScreen(screens.acompanhando);
+}
     };
 });
 
@@ -364,6 +372,7 @@ const botoesVoltar = [
     ['voltar-menu-resumos', screens.menu],
 	['voltar-resumo-diario', screens.resumos],
 	['voltar-historico', screens.resumos],
+	['voltar-acompanhando', screens.menu],
 	//['voltar-menu-metas', screens.menu],
 	['voltar-metas-mensal', screens.metas],
     ['voltar-metas-semanal', screens.metas],
@@ -376,7 +385,10 @@ botoesVoltar.forEach(([id, screen]) => {
 	
 });
 
-window.onload = gerenciarEstadoInterface;
+window.onload = () => {
+    gerenciarEstadoInterface();
+    atualizarResumoGeral();
+};
 
 // ==========================================
 // 8. EXPORTAÇÃO (PDF E EXCEL) REVISADA
@@ -422,8 +434,12 @@ document.getElementById('export-pdf').onclick = () => {
         });
 
         const lucro = totalApurado - abast - outros;
-        const valorHora = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
-		const valorKm = totalKM > 0 ? lucro / totalKM : 0;
+        // MÉTRICAS BASEADAS NO APURADO
+		const valorHoraApurado = totalMinutos > 0 ? totalApurado / (totalMinutos / 60) : 0;
+		const valorKmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+		// MÉTRICAS BASEADAS NO LUCRO
+		const valorHoraLucro = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+		const valorKmLucro = totalKM > 0 ? lucro / totalKM : 0;
         const tempoFmt = `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:${(totalMinutos%60).toString().padStart(2,'0')}h`;
 
         // Verifica se precisa de nova página
@@ -453,11 +469,13 @@ document.getElementById('export-pdf').onclick = () => {
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         const resumo = [
-            `Intervalo Total: ${tempoFmt} | KM Total: ${totalKM} km`,
-            `Combustível: R$ ${abast.toFixed(2)} | Outros Custos: R$ ${outros.toFixed(2)}`,
-            `Total Apurado: R$ ${totalApurado.toFixed(2)}`,
-            `LUCRO DO DIA: R$ ${lucro.toFixed(2)} | MÉDIA: R$ ${valorHora.toFixed(2)}/h | R$ ${valorKm.toFixed(2)}/km`
-        ];
+			`Intervalo Total: ${tempoFmt} | KM Total: ${totalKM} km`,
+			`Combustível: R$ ${abast.toFixed(2)} | Outros Custos: R$ ${outros.toFixed(2)}`,
+			`Total Apurado: R$ ${totalApurado.toFixed(2)}`,
+			`Lucro do Dia: R$ ${lucro.toFixed(2)}`,
+			`Média (Apurado): R$ ${valorHoraApurado.toFixed(2)}/h | R$ ${valorKmApurado.toFixed(2)}/km`,
+			`Média (Lucro): R$ ${valorHoraLucro.toFixed(2)}/h | R$ ${valorKmLucro.toFixed(2)}/km`
+		];
 
         resumo.forEach(linha => {
             doc.text(linha, 14, yPos);
@@ -472,65 +490,190 @@ document.getElementById('export-pdf').onclick = () => {
 
 // --- EXPORTAR PARA EXCEL (CSV DETALHADO) ---
 document.getElementById('export-excel').onclick = () => {
+
     const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
     const chaves = Object.keys(historico).reverse();
-    if (chaves.length === 0) return alert("Não há dados!");
 
-    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h;Valor/km\n";
+    if (chaves.length === 0) {
+        alert("Não há dados!");
+        return;
+    }
+
+    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h Apurado;R$/km Apurado;Media/h Lucro;R$/km Lucro\n";
+
+    let somaKM = 0;
+    let somaApurado = 0;
+    let somaLucro = 0;
+    let somaAbast = 0;
+    let somaOutros = 0;
+    let somaMin = 0;
 
     chaves.forEach(data => {
+
         const info = historico[data];
-        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || []).filter(a => a.data === data).reduce((acc, a) => acc + a.valor, 0);
-        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || []).filter(c => c.data === data).reduce((acc, c) => acc + c.valor, 0);
-        
-        let totalKM = 0, totalApurado = 0, totalMin = 0;
+
+        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || [])
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
+
+        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || [])
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
+
+        let totalKM = 0;
+        let totalApurado = 0;
+        let totalMin = 0;
+
         info.sessoes.forEach(s => {
-            totalKM += (s.kF - s.kI);
+
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
             totalApurado += s.apurado;
+
             const [hI, mI] = s.hI.split(':').map(Number);
             const [hF, mF] = s.hF.split(':').map(Number);
-            let d = (hF * 60 + mF) - (hI * 60 + mI);
-            if (d < 0) d += 1440;
-            totalMin += d;
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            totalMin += diff;
         });
 
         const lucro = totalApurado - abast - outros;
-        const vh = totalMin > 0 ? lucro / (totalMin / 60) : 0;
-		const vkm = totalKM > 0 ? lucro / totalKM : 0;
-        const tempo = `${Math.floor(totalMin/60)}h${totalMin%60}m`;
+        const horas = totalMin / 60;
 
-        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${vh.toFixed(2)};${vkm.toFixed(2)}\n`;
+        const mediaHoraApurado = horas > 0 ? totalApurado / horas : 0;
+        const kmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+
+        const mediaHoraLucro = horas > 0 ? lucro / horas : 0;
+        const kmLucro = totalKM > 0 ? lucro / totalKM : 0;
+
+        const tempo = `${Math.floor(totalMin / 60)}h${totalMin % 60}m`;
+
+        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${mediaHoraApurado.toFixed(2)};${kmApurado.toFixed(2)};${mediaHoraLucro.toFixed(2)};${kmLucro.toFixed(2)}\n`;
+
+        // acumuladores
+        somaKM += totalKM;
+        somaApurado += totalApurado;
+        somaLucro += lucro;
+        somaAbast += abast;
+        somaOutros += outros;
+        somaMin += totalMin;
+
+    });
+
+    const horasTotais = somaMin / 60;
+
+    const mediaHoraApuradoGeral = horasTotais > 0 ? somaApurado / horasTotais : 0;
+    const kmApuradoGeral = somaKM > 0 ? somaApurado / somaKM : 0;
+
+    const mediaHoraLucroGeral = horasTotais > 0 ? somaLucro / horasTotais : 0;
+    const kmLucroGeral = somaKM > 0 ? somaLucro / somaKM : 0;
+
+    csv += "\n";
+    csv += `TOTAL;;${somaKM};${somaAbast.toFixed(2)};${somaOutros.toFixed(2)};${somaApurado.toFixed(2)};${somaLucro.toFixed(2)};;;;\n`;
+    csv += `MEDIA GERAL;;;;;;;${mediaHoraApuradoGeral.toFixed(2)};${kmApuradoGeral.toFixed(2)};${mediaHoraLucroGeral.toFixed(2)};${kmLucroGeral.toFixed(2)}\n`;
+
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+
+    saveAs(blob, "Relatorio_Controle_Diario.csv");
+};
+
+// --- EXPORTAR RELATÓRIO MENSAL ---
+document.getElementById('export-mensal').onclick = () => {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+
+    if (Object.keys(historico).length === 0) {
+        alert("Não há dados!");
+        return;
+    }
+
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outrosCustos = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    const meses = {};
+
+    Object.keys(historico).forEach(data => {
+
+        const [dia, mes, ano] = data.split('/');
+        const chaveMes = `${mes}/${ano}`;
+
+        if (!meses[chaveMes]) {
+            meses[chaveMes] = {
+                km: 0,
+                apurado: 0,
+                lucro: 0,
+                abast: 0,
+                outros: 0,
+                minutos: 0
+            };
+        }
+
+        const info = historico[data];
+
+        let kmDia = 0;
+        let apuradoDia = 0;
+        let minDia = 0;
+
+        info.sessoes.forEach(s => {
+
+            const kmSessao = s.kF - s.kI;
+            kmDia += kmSessao;
+
+            apuradoDia += s.apurado;
+
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            minDia += diff;
+        });
+
+        const abastDia = abastecimentos
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
+
+        const outrosDia = outrosCustos
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
+
+        const lucroDia = apuradoDia - abastDia - outrosDia;
+
+        meses[chaveMes].km += kmDia;
+        meses[chaveMes].apurado += apuradoDia;
+        meses[chaveMes].lucro += lucroDia;
+        meses[chaveMes].abast += abastDia;
+        meses[chaveMes].outros += outrosDia;
+        meses[chaveMes].minutos += minDia;
+
+    });
+
+    let csv = "Mes;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h Apurado;R$/km Apurado;Media/h Lucro;R$/km Lucro\n";
+
+    Object.keys(meses).sort().forEach(mes => {
+
+        const dados = meses[mes];
+
+        const horas = dados.minutos / 60;
+
+        const mediaHoraApurado = horas > 0 ? dados.apurado / horas : 0;
+        const kmApurado = dados.km > 0 ? dados.apurado / dados.km : 0;
+
+        const mediaHoraLucro = horas > 0 ? dados.lucro / horas : 0;
+        const kmLucro = dados.km > 0 ? dados.lucro / dados.km : 0;
+
+        csv += `${mes};${dados.km};${dados.abast.toFixed(2)};${dados.outros.toFixed(2)};${dados.apurado.toFixed(2)};${dados.lucro.toFixed(2)};${mediaHoraApurado.toFixed(2)};${kmApurado.toFixed(2)};${mediaHoraLucro.toFixed(2)};${kmLucro.toFixed(2)}\n`;
+
     });
 
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, `Relatorio_Controle_Diario.csv`);
+
+    saveAs(blob, "Relatorio_Mensal.csv");
+
 };
-
-
-function atualizarPainelResumoCustos() {
-    const hoje = new Date().toLocaleDateString('pt-BR');
-    
-    // Soma Abastecimentos
-    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
-    const totalAbast = abastecimentos
-        .filter(a => a.data === hoje)
-        .reduce((acc, a) => acc + a.valor, 0);
-
-    // Soma Outros Custos
-    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
-    const totalOutros = outros
-        .filter(c => c.data === hoje)
-        .reduce((acc, c) => acc + c.valor, 0);
-
-    // Atualiza o HTML
-    const abastEl = document.getElementById('resumo-custo-abast');
-    const outrosEl = document.getElementById('resumo-custo-outros');
-    const totalEl = document.getElementById('resumo-custo-total');
-
-    if(abastEl) abastEl.textContent = `R$ ${totalAbast.toFixed(2).replace('.', ',')}`;
-    if(outrosEl) outrosEl.textContent = `R$ ${totalOutros.toFixed(2).replace('.', ',')}`;
-    if(totalEl) totalEl.textContent = `R$ ${(totalAbast + totalOutros).toFixed(2).replace('.', ',')}`;
-}
 
 
 // Função que realiza as somas (adicione ao final do arquivo)
@@ -755,3 +898,96 @@ function calcularLucroParaMeta(tipo) {
     return ganhos - custos; // Este é o LUCRO REAL
 }
 
+function atualizarResumoGeral() {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    let totalApurado = 0;
+
+    // Somar apurado
+    Object.values(historico).forEach(dia => {
+        dia.sessoes.forEach(s => {
+            totalApurado += s.apurado;
+        });
+    });
+
+    // Somar custos
+    const totalAbastecimento = abastecimentos.reduce((acc, a) => acc + a.valor, 0);
+    const totalOutros = outros.reduce((acc, c) => acc + c.valor, 0);
+
+    const totalCustos = totalAbastecimento + totalOutros;
+
+    // Calcular lucro
+    const totalLucro = totalApurado - totalCustos;
+
+    // Atualizar interface
+    const apuradoEl = document.getElementById('total-apurado-geral');
+    const lucroEl = document.getElementById('total-lucro-geral');
+
+    if(apuradoEl){
+        apuradoEl.textContent = `R$ ${totalApurado.toFixed(2).replace('.',',')}`;
+    }
+
+    if(lucroEl){
+        lucroEl.textContent = `R$ ${totalLucro.toFixed(2).replace('.',',')}`;
+    }
+}
+
+function atualizarPainelResultados(){
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    let totalApurado = 0;
+    let totalKM = 0;
+    let totalMin = 0;
+
+    Object.values(historico).forEach(dia => {
+
+        dia.sessoes.forEach(s => {
+
+            totalApurado += s.apurado;
+
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
+
+            const [hI,mI] = s.hI.split(':').map(Number);
+            const [hF,mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF*60+mF)-(hI*60+mI);
+            if(diff<0) diff+=1440;
+
+            totalMin += diff;
+        });
+
+    });
+
+    const totalAbastecimento = abastecimentos.reduce((acc,a)=>acc+a.valor,0);
+    const totalOutros = outros.reduce((acc,c)=>acc+c.valor,0);
+
+    const totalCustos = totalAbastecimento + totalOutros;
+    const totalLucro = totalApurado - totalCustos;
+
+    const horas = totalMin/60;
+
+    const horaApurado = horas>0 ? totalApurado/horas : 0;
+    const horaLucro = horas>0 ? totalLucro/horas : 0;
+
+    const kmApurado = totalKM>0 ? totalApurado/totalKM : 0;
+    const kmLucro = totalKM>0 ? totalLucro/totalKM : 0;
+
+    document.getElementById('painel-apurado-total').textContent = `R$ ${totalApurado.toFixed(2).replace('.',',')}`;
+    document.getElementById('painel-lucro-total').textContent = `R$ ${totalLucro.toFixed(2).replace('.',',')}`;
+    document.getElementById('painel-custos-total').textContent = `R$ ${totalCustos.toFixed(2).replace('.',',')}`;
+
+    document.getElementById('painel-km-total').textContent = `${totalKM} km`;
+
+    document.getElementById('painel-lucro-km').textContent = `R$ ${kmLucro.toFixed(2).replace('.',',')}/km`;
+    document.getElementById('painel-apurado-km').textContent = `R$ ${kmApurado.toFixed(2).replace('.',',')}/km`;
+
+    document.getElementById('painel-hora-apurado').textContent = `R$ ${horaApurado.toFixed(2).replace('.',',')}/h`;
+    document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.',',')}/h`;
+}
