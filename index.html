@@ -22,7 +22,8 @@
       <span id="current-time"></span>
     </div>
   </header>
-
+  
+ 
   <!-- MENU PRINCIPAL -->
   <section class="menu" id="menu-principal">
 
@@ -49,22 +50,32 @@
         <p>Resultados e histórico</p>
       </div>
     </button>
-
-    <button class="menu-card" data-action="metas">
+	
+	    <button class="menu-card" data-action="metas">
       <div class="icon icon-metas">🎯</div>
       <div class="text">
         <h2>Metas</h2>
         <p>Objetivos diários</p>
       </div>
     </button>
+	
+	<button class="menu-card" data-action="acompanhando">
+	<div class="icon icon-acompanhando">📊</div>
+	<div class="text">
+		<h2>Acompanhando Resultados</h2>
+		<p>Dados Financeiros</p>
+	</div>
+	</button>
 
-    <!--<button class="menu-card" data-action="manutencao">
-      <div class="icon icon-manutencao">🛠️</div>
-      <div class="text">
-        <h2>Manutenção</h2>
-        <p>Alertas do oi veículo</p>
-      </div>
-    </button> -->
+ <!-- <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:15px;">
+    
+    <p style="font-size:12px; opacity:0.7;">APURADO TOTAL</p>
+    <h2 id="total-apurado-geral" style="color:#60a5fa;">R$ 0,00</h2>
+
+    <p style="font-size:12px; opacity:0.7; margin-top:10px;">LUCRO TOTAL</p>
+    <h2 id="total-lucro-geral" style="color:#4ade80;">R$ 0,00</h2>
+
+</div>  -->  
 
   </section>
 
@@ -255,7 +266,8 @@
   <div class="historico-botoes">
     <button class="btn btn-warning" id="export-pdf">Exportar PDF</button>
     <button class="btn btn-warning" id="export-excel">Exportar Excel</button>
-  </div>
+    <button class="btn btn-warning" id="export-mensal">Exportar Relatório Mensal</button>
+</div>
 
   <ul id="lista-historico" style="list-style:none; padding:0; margin-top:10px;">
     <!-- Cada turno será exibido aqui via JS -->
@@ -264,6 +276,68 @@
   <button class="btn btn-back" id="voltar-historico">← Voltar</button>
   <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
 </section>
+
+<div id="screen-acompanhando-resultados" class="hidden">
+
+    <div class="top-bar" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+
+    
+    <h2 style="flex:1; text-align:center; margin-right:60px;">
+        Acompanhando Resultados
+    </h2>
+
+</div>
+
+    <div class="container">
+
+         <div class="resumo-card">
+
+            <h3 style="margin-bottom:10px;">📊 Resultado Geral</h3>
+
+            <p>Apurado Total:</p>
+            <h2 id="painel-apurado-total" style="color:#60a5fa;">R$ 0,00</h2>
+
+            <p>Lucro Total:</p>
+            <h2 id="painel-lucro-total" style="color:#4ade80;">R$ 0,00</h2>
+
+            <p>Custos Totais:</p>
+            <h2 id="painel-custos-total" style="color:#f87171;">R$ 0,00</h2>
+
+            <hr>
+
+            <p>KM Total Rodado:</p>
+            <h2 id="painel-km-total">0 km</h2>
+			
+			<hr>
+			
+			<p>Média por Hora (Apurado):</p>
+            <h2 id="painel-hora-apurado">R$ 0,00/h</h2>
+			
+			<p>Apurado por KM:</p>
+            <h2 id="painel-apurado-km">R$ 0,00/km</h2>
+			
+			<hr>
+			
+			<p>Média por Hora (Lucro):</p>
+            <h2 id="painel-hora-lucro">R$ 0,00/h</h2>
+			
+            <p>Lucro por KM:</p>
+            <h2 id="painel-lucro-km">R$ 0,00/km</h2>
+
+            
+            <hr>            
+
+        </div> 
+		
+		
+
+    </div>
+	
+	<button id="voltar-acompanhando" class="btn btn-warning">
+        ← Voltar
+    </button>
+
+</div>
 
 <!-- TELA: MENU DE METAS -->
 <section class="screen hidden" id="screen-metas">
@@ -375,4 +449,3 @@
 
 </body>
 </html>
-
