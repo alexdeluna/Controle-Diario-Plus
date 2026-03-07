@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-diario-v4';
+const CACHE_NAME = 'controle-diario-v7';
 
 const FILES_TO_CACHE = [
   './',
@@ -43,5 +43,4 @@ self.addEventListener('fetch', event => {
   );
 
 });
-
 
