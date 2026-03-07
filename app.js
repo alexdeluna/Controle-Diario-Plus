@@ -1,5 +1,5 @@
 // ==========================================
-// 1. ESTADO E NAVEGAÇÃO. 1
+// 1. ESTADO E NAVEGAÇÃO.
 // ==========================================
 const screens = {
     menu: document.getElementById('menu-principal'),
@@ -991,4 +991,5 @@ function atualizarPainelResultados(){
     document.getElementById('painel-hora-apurado').textContent = `R$ ${horaApurado.toFixed(2).replace('.',',')}/h`;
     document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.',',')}/h`;
 }
+
 
