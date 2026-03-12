@@ -12,7 +12,7 @@
 <body>
 <main class="app">
 
-  <!-- HEADER -->
+  <!-- HEADER. -->
   <header class="app-header">
     <h1>Bem-vindo</h1>
     <p id="status-indicador">🔴 Turno inativo</p>
@@ -66,8 +66,17 @@
 		<p>Dados Financeiros</p>
 	</div>
 	</button>
-	
-	
+
+ <!-- <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:15px;">
+    
+    <p style="font-size:12px; opacity:0.7;">APURADO TOTAL</p>
+    <h2 id="total-apurado-geral" style="color:#60a5fa;">R$ 0,00</h2>
+
+    <p style="font-size:12px; opacity:0.7; margin-top:10px;">LUCRO TOTAL</p>
+    <h2 id="total-lucro-geral" style="color:#4ade80;">R$ 0,00</h2>
+
+</div>  -->  
+
   </section>
 
   <!-- MENU TURNO -->
@@ -277,10 +286,6 @@
         Acompanhando Resultados
     </h2>
 
-	<p id="periodo-analisado" style="text-align:center; color:var(--muted); margin-bottom:6px;"></p>
-	<p id="mensagem-periodo" style="text-align:center; color:var(--muted); margin-bottom:10px;"></p>
-
-
 </div>
 
     <div class="container">
@@ -288,19 +293,6 @@
          <div class="resumo-card">
 
             <h3 style="margin-bottom:10px;">📊 Resultado Geral</h3>
-			
-			<!-- Seção para selecionar o período -->
-<div class="form-group">
-    <label for="data-inicio">Data Início:</label>
-    <input type="date" id="data-inicio" name="data-inicio">
-</div>
-
-<div class="form-group">
-    <label for="data-fim">Data Fim:</label>
-    <input type="date" id="data-fim" name="data-fim">
-</div>
-
-<button id="btn-filtrar-periodo" class="btn btn-primary">Filtrar por Período</button>
 
             <p>Apurado Total:</p>
             <h2 id="painel-apurado-total" style="color:#60a5fa;">R$ 0,00</h2>
@@ -457,3 +449,4 @@
 
 </body>
 </html>
+
