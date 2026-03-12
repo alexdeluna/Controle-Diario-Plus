@@ -110,6 +110,56 @@ document.getElementById('btn-finalizar-turno').onclick = () => {
 };
 
 // ==========================================
+// FILTRO DE RESULTADOS POR PERÍODO
+// ==========================================
+
+function filtrarResultadosPorPeriodo(dataInicio, dataFim){
+
+    const historico = JSON.parse(localStorage.getItem("historico_dias")) || {};
+    const resultado = [];
+
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+
+    Object.keys(historico).forEach(dataBR => {
+
+        const partes = dataBR.split("/");
+        const dataObj = new Date(partes[2], partes[1]-1, partes[0]);
+
+        if(dataObj >= inicio && dataObj <= fim){
+            resultado.push(historico[dataBR]);
+        }
+
+    });
+
+    atualizarPainelResultadoPeriodo(resultado);
+
+}
+
+// ==========================================
+// FILTRO DE PERÍODO - ACOMPANHANDO RESULTADOS
+// ==========================================
+
+const btnFiltrarPeriodo = document.getElementById("btn-filtrar-periodo");
+
+if (btnFiltrarPeriodo) {
+    btnFiltrarPeriodo.onclick = () => {
+
+        const inicio = document.getElementById("data-inicio").value;
+        const fim = document.getElementById("data-fim").value;
+
+        if (!inicio || !fim) {
+            alert("Selecione o período.");
+            return;
+        }
+
+        filtrarResultadosPorPeriodo(inicio, fim);
+
+    };
+}
+
+
+// ==========================================
 // 4. CUSTOS
 // ==========================================
 
@@ -992,4 +1042,135 @@ function atualizarPainelResultados(){
     document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.',',')}/h`;
 }
 
+document.getElementById('btn-filtrar-periodo').onclick = () => {
+    const dataInicio = document.getElementById('data-inicio').value;
+    const dataFim = document.getElementById('data-fim').value;
+
+    if (!dataInicio || !dataFim) {
+        return alert("Por favor, selecione um intervalo de datas válido!");
+    }
+
+    // Converte as datas para objetos Date para comparação
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+
+    // Valida se o intervalo é válido
+    if (inicio > fim) {
+        return alert("A data de início não pode ser maior que a data de fim!");
+    }
+
+    // Filtra os dados de histórico com base no intervalo
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const resultadoPeriodo = {};
+
+    Object.keys(historico).forEach(data => {
+        const [dia, mes, ano] = data.split('/').map(Number);
+        const dataAtual = new Date(ano, mes - 1, dia);
+
+        if (dataAtual >= inicio && dataAtual <= fim) {
+            resultadoPeriodo[data] = historico[data];
+        }
+    });
+
+    // Exibe os resultados filtrados no painel
+    atualizarPainelResultadoPeriodo(resultadoPeriodo);
+};
+
+// Função para atualizar o painel com os dados filtrados
+function atualizarPainelResultadoPeriodo(historicoPeriodo) {
+
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    const msg = document.getElementById("mensagem-periodo");
+    const periodo = document.getElementById("periodo-analisado");
+
+    const dataInicio = document.getElementById("data-inicio").value;
+    const dataFim = document.getElementById("data-fim").value;
+
+    if (dataInicio && dataFim) {
+        periodo.textContent = `📅 Período analisado: ${dataInicio} → ${dataFim}`;
+    }
+
+    let totalApurado = 0;
+    let totalKM = 0;
+    let totalMin = 0;
+    let totalCustos = 0;
+
+    const datas = Object.keys(historicoPeriodo);
+
+    if (datas.length === 0) {
+
+        msg.textContent = "📭 Nenhum resultado encontrado neste período.";
+
+        document.getElementById('painel-apurado-total').textContent = "R$ 0,00";
+        document.getElementById('painel-lucro-total').textContent = "R$ 0,00";
+        document.getElementById('painel-custos-total').textContent = "R$ 0,00";
+        document.getElementById('painel-km-total').textContent = "0 km";
+        document.getElementById('painel-hora-apurado').textContent = "R$ 0,00/h";
+        document.getElementById('painel-hora-lucro').textContent = "R$ 0,00/h";
+        document.getElementById('painel-apurado-km').textContent = "R$ 0,00/km";
+        document.getElementById('painel-lucro-km').textContent = "R$ 0,00/km";
+
+        return;
+    }
+
+    msg.textContent = "";
+
+    datas.forEach(data => {
+
+        const dia = historicoPeriodo[data];
+
+        dia.sessoes.forEach(s => {
+
+            totalApurado += s.apurado;
+
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
+
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            totalMin += diff;
+
+        });
+
+        const abastDia = abastecimentos
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
+
+        const outrosDia = outros
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
+
+        totalCustos += abastDia + outrosDia;
+
+    });
+
+    const totalLucro = totalApurado - totalCustos;
+
+    const horas = totalMin / 60;
+
+    const horaApurado = horas > 0 ? totalApurado / horas : 0;
+    const horaLucro = horas > 0 ? totalLucro / horas : 0;
+
+    const kmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+    const kmLucro = totalKM > 0 ? totalLucro / totalKM : 0;
+
+    document.getElementById('painel-apurado-total').textContent = `R$ ${totalApurado.toFixed(2).replace('.', ',')}`;
+    document.getElementById('painel-lucro-total').textContent = `R$ ${totalLucro.toFixed(2).replace('.', ',')}`;
+    document.getElementById('painel-custos-total').textContent = `R$ ${totalCustos.toFixed(2).replace('.', ',')}`;
+
+    document.getElementById('painel-km-total').textContent = `${totalKM} km`;
+
+    document.getElementById('painel-hora-apurado').textContent = `R$ ${horaApurado.toFixed(2).replace('.', ',')}/h`;
+    document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.', ',')}/h`;
+
+    document.getElementById('painel-apurado-km').textContent = `R$ ${kmApurado.toFixed(2).replace('.', ',')}/km`;
+    document.getElementById('painel-lucro-km').textContent = `R$ ${kmLucro.toFixed(2).replace('.', ',')}/km`;
+
+}
 
