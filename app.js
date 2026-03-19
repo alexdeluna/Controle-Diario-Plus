@@ -126,6 +126,55 @@ document.getElementById('btn-finalizar-turno').onclick = () => {
     showScreen(screens.menu);
 };
 
+// ==========================================
+// FILTRO DE RESULTADOS POR PERÍODO
+// ==========================================
+
+function filtrarResultadosPorPeriodo(dataInicio, dataFim){
+
+    const historico = JSON.parse(localStorage.getItem("historico_dias")) || {};
+    const resultado = [];
+
+    const inicio = new Date(dataInicio + "T00:00:00");
+    const fim = new Date(dataFim + "T23:59:59");
+
+    Object.keys(historico).forEach(dataBR => {
+
+        const partes = dataBR.split("/");
+        const dataObj = new Date(`${partes[2]}-${partes[1]}-${partes[0]}T12:00:00`);
+
+        if(dataObj >= inicio && dataObj <= fim){
+            resultado.push(historico[dataBR]);
+        }
+
+    });
+
+    atualizarPainelResultadoPeriodo(resultado);
+
+}
+
+// ==========================================
+// FILTRO DE PERÍODO - ACOMPANHANDO RESULTADOS
+// ==========================================
+
+const btnFiltrarPeriodo = document.getElementById("btn-filtrar-periodo");
+
+if (btnFiltrarPeriodo) {
+    btnFiltrarPeriodo.onclick = () => {
+
+        const inicio = document.getElementById("data-inicio").value;
+        const fim = document.getElementById("data-fim").value;
+
+        if (!inicio || !fim) {
+            alert("Selecione o período.");
+            return;
+        }
+
+        filtrarResultadosPorPeriodo(inicio, fim);
+
+    };
+}
+
 
 // ==========================================
 // 4. CUSTOS
@@ -158,7 +207,6 @@ document.getElementById('btn-salvar-abastecimento').onclick = () => {
     atualizarListaAbastecimentos();
 
     alert("Salvo!");
-	atualizarPainelResultado();
 };
 
 document.getElementById('btn-salvar-custo-outro').onclick = () => {
@@ -185,7 +233,6 @@ document.getElementById('btn-salvar-custo-outro').onclick = () => {
     atualizarListaCustos();
 	atualizarResumoGeral();
     alert("Custo adicionado!");
-	atualizarPainelResultado();
 };
 
 
@@ -449,9 +496,8 @@ document.querySelectorAll('.menu-card').forEach(card => {
         if (action === 'resumos') showScreen(screens.resumos);
 		if (action === 'metas') showScreen(screens.metas);
 		if (action === 'acompanhando') {
-    document.getElementById('resultado-acompanhamento').innerHTML =
-        '<p style="text-align:center; opacity:0.7;">Selecione uma opção para visualizar os resultados.</p>';
-    showScreen(screens.acompanhando);
+			atualizarPainelResultados();
+			showScreen(screens.acompanhando);
 }
     };
 });
@@ -487,12 +533,6 @@ document.getElementById('btn-ir-outros-custos').onclick = () => showScreen(scree
 document.getElementById('btn-hora-atual').onclick = () => document.getElementById('hora-inicio').value = new Date().toTimeString().slice(0, 5);
 document.getElementById('btn-hora-final-atual').onclick = () => document.getElementById('hora-fim').value = new Date().toTimeString().slice(0, 5);
 document.getElementById('tipo-custo').onchange = (e) => document.getElementById('group-desc-outros').classList.toggle('hidden', e.target.value !== 'Outros');
-document.getElementById('btn-resultado-total').onclick = () => atualizarPainelResultados('total');
-document.getElementById('btn-resultado-mensal').onclick = () => atualizarPainelResultados('mensal');
-document.getElementById('btn-resultado-semanal').onclick = () => atualizarPainelResultados('semanal');
-document.getElementById('btn-resultado-diario').onclick = () => atualizarPainelResultados('diario');
-
-
 
 // Botões Voltar
 const botoesVoltar = [
@@ -852,7 +892,6 @@ const salvarMetaSimples = (tipo) => {
     localStorage.setItem(`config_meta_${tipo}`, input.value);
     atualizarProgressoMeta(tipo);
     alert("Meta salva!");
-	atualizarPainelResultado();
 };
 
 if(document.getElementById('btn-salvar-meta-mensal')) document.getElementById('btn-salvar-meta-mensal').onclick = () => salvarMetaSimples('mensal');
@@ -897,7 +936,6 @@ document.getElementById('btn-salvar-meta-data').onclick = () => {
     // Limpar campos
     document.getElementById('meta-data-titulo').value = '';
     document.getElementById('meta-data-valor').value = '';
-	atualizarPainelResultado();
 };
 
 /*function renderizarMetasPorData() {
@@ -1070,201 +1108,119 @@ function atualizarResumoGeral() {
     }
 }
 
-function atualizarPainelResultados() {
+function atualizarPainelResultados(){
 
     const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
     const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
     const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
 
-    function normalizarData(data) {
-        const d = new Date(data);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    }
+    let totalApurado = 0;
+    let totalKM = 0;
+    let totalMin = 0;
 
-    function dataBRparaDate(dataBR) {
-        const [dia, mes, ano] = dataBR.split('/').map(Number);
-        return new Date(ano, mes - 1, dia);
-    }
+    Object.values(historico).forEach(dia => {
 
-    function inicioDaSemana(dataBase) {
-        const d = new Date(dataBase);
-        const diaSemana = d.getDay(); // 0=domingo, 1=segunda...
-        const ajuste = diaSemana === 0 ? 6 : diaSemana - 1; // semana começa na segunda
-        d.setDate(d.getDate() - ajuste);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    }
+        dia.sessoes.forEach(s => {
 
-    function inicioDoMes(dataBase) {
-        return new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
-    }
+            totalApurado += s.apurado;
 
-    function formatarMoeda(valor) {
-        return `R$ ${valor.toFixed(2).replace('.', ',')}`;
-    }
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
 
-    function calcularResumo(dataInicio = null, dataFim = null) {
-        let totalApurado = 0;
-        let totalKM = 0;
-        let totalMin = 0;
-        let totalCustos = 0;
+            const [hI,mI] = s.hI.split(':').map(Number);
+            const [hF,mF] = s.hF.split(':').map(Number);
 
-        Object.keys(historico).forEach(data => {
-            const dataDia = normalizarData(dataBRparaDate(data));
+            let diff = (hF*60+mF)-(hI*60+mI);
+            if(diff < 0) diff += 1440;
 
-            const dentroDoPeriodo =
-                (!dataInicio || dataDia >= dataInicio) &&
-                (!dataFim || dataDia <= dataFim);
+            totalMin += diff;
 
-            if (!dentroDoPeriodo) return;
-
-            historico[data].sessoes.forEach(s => {
-                totalApurado += s.apurado;
-                totalKM += (s.kF - s.kI);
-
-                const [hI, mI] = s.hI.split(':').map(Number);
-                const [hF, mF] = s.hF.split(':').map(Number);
-
-                let diff = (hF * 60 + mF) - (hI * 60 + mI);
-                if (diff < 0) diff += 1440;
-
-                totalMin += diff;
-            });
         });
 
-        abastecimentos.forEach(a => {
-            const dataCusto = normalizarData(dataBRparaDate(a.data));
-            const dentroDoPeriodo =
-                (!dataInicio || dataCusto >= dataInicio) &&
-                (!dataFim || dataCusto <= dataFim);
+    });
 
-            if (dentroDoPeriodo) totalCustos += a.valor;
-        });
+    const totalAbastecimento = abastecimentos.reduce((acc,a)=>acc+a.valor,0);
+    const totalOutros = outros.reduce((acc,c)=>acc+c.valor,0);
 
-        outros.forEach(c => {
-            const dataCusto = normalizarData(dataBRparaDate(c.data));
-            const dentroDoPeriodo =
-                (!dataInicio || dataCusto >= dataInicio) &&
-                (!dataFim || dataCusto <= dataFim);
+    const totalCustos = totalAbastecimento + totalOutros;
+    const totalLucro = totalApurado - totalCustos;
 
-            if (dentroDoPeriodo) totalCustos += c.valor;
-        });
+    const horas = totalMin/60;
 
-        const totalLucro = totalApurado - totalCustos;
-        const horas = totalMin / 60;
+    const horaApurado = horas>0 ? totalApurado/horas : 0;
+    const horaLucro = horas>0 ? totalLucro/horas : 0;
 
-        return {
-            totalApurado,
-            totalCustos,
-            totalLucro,
-            totalKM,
-            horaApurado: horas > 0 ? totalApurado / horas : 0,
-            horaLucro: horas > 0 ? totalLucro / horas : 0,
-            kmApurado: totalKM > 0 ? totalApurado / totalKM : 0,
-            kmLucro: totalKM > 0 ? totalLucro / totalKM : 0
-        };
-    }
+    const kmApurado = totalKM>0 ? totalApurado/totalKM : 0;
+    const kmLucro = totalKM>0 ? totalLucro/totalKM : 0;
 
-    function montarCard(titulo, resumo) {
-        return `
-            <h3 style="margin-bottom:10px;">${titulo}</h3>
+    document.getElementById('painel-apurado-total').textContent = `R$ ${totalApurado.toFixed(2).replace('.',',')}`;
+    document.getElementById('painel-lucro-total').textContent = `R$ ${totalLucro.toFixed(2).replace('.',',')}`;
+    document.getElementById('painel-custos-total').textContent = `R$ ${totalCustos.toFixed(2).replace('.',',')}`;
 
-            <p>Apurado Total:</p>
-            <h2 style="color:#60a5fa;">${formatarMoeda(resumo.totalApurado)}</h2>
+    document.getElementById('painel-km-total').textContent = `${totalKM} km`;
 
-            <p>Lucro Total:</p>
-            <h2 style="color:#4ade80;">${formatarMoeda(resumo.totalLucro)}</h2>
+    document.getElementById('painel-lucro-km').textContent = `R$ ${kmLucro.toFixed(2).replace('.',',')}/km`;
+    document.getElementById('painel-apurado-km').textContent = `R$ ${kmApurado.toFixed(2).replace('.',',')}/km`;
 
-            <p>Custos Totais:</p>
-            <h2 style="color:#f87171;">${formatarMoeda(resumo.totalCustos)}</h2>
+    document.getElementById('painel-hora-apurado').textContent = `R$ ${horaApurado.toFixed(2).replace('.',',')}/h`;
+    document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.',',')}/h`;
 
-            <hr>
-
-            <p>KM Total Rodado:</p>
-            <h2>${resumo.totalKM} km</h2>
-
-            <hr>
-
-            <p>Média por Hora (Apurado):</p>
-            <h2>${formatarMoeda(resumo.horaApurado)}/h</h2>
-
-            <p>Apurado por KM:</p>
-            <h2>${formatarMoeda(resumo.kmApurado)}/km</h2>
-
-            <hr>
-
-            <p>Média por Hora (Lucro):</p>
-            <h2>${formatarMoeda(resumo.horaLucro)}/h</h2>
-
-            <p>Lucro por KM:</p>
-            <h2>${formatarMoeda(resumo.kmLucro)}/km</h2>
-        `;
-    }
-
-    const hoje = normalizarData(new Date());
-    const semana = inicioDaSemana(hoje);
-    const mes = inicioDoMes(hoje);
-
-    const resumoTotal = calcularResumo();
-    const resumoSemanal = calcularResumo(semana, hoje);
-    const resumoMensal = calcularResumo(mes, hoje);
-    const resumoDiario = calcularResumo(hoje, hoje);
-
-    document.getElementById('painel-total').innerHTML = montarCard('📊 Total', resumoTotal);
-    document.getElementById('painel-semanal').innerHTML = montarCard('🗓️ Semanal', resumoSemanal);
-    document.getElementById('painel-mensal').innerHTML = montarCard('📅 Mensal', resumoMensal);
-    document.getElementById('painel-diario').innerHTML = montarCard('☀️ Diário', resumoDiario);
 }
 
-function atualizarPainelResultados(tipo = 'total') {
+document.getElementById('btn-filtrar-periodo').onclick = () => {
+
+    const dataInicio = document.getElementById('data-inicio').value;
+    const dataFim = document.getElementById('data-fim').value;
+
+    if (!dataInicio || !dataFim) {
+        return alert("Por favor, selecione um intervalo de datas válido!");
+    }
+
+    const inicio = new Date(dataInicio + "T00:00:00");
+    const fim = new Date(dataFim + "T23:59:59");
+
+    if (inicio > fim) {
+        return alert("A data de início não pode ser maior que a data de fim!");
+    }
 
     const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const resultadoPeriodo = {};
+
+    Object.keys(historico).forEach(data => {
+
+        const [dia, mes, ano] = data.split('/').map(Number);
+        const dataAtual = new Date(ano, mes - 1, dia, 12);
+
+        if (dataAtual >= inicio && dataAtual <= fim) {
+            resultadoPeriodo[data] = historico[data];
+        }
+
+    });
+
+    atualizarPainelResultadoPeriodo(resultadoPeriodo);
+
+};
+
+// Função para atualizar o painel com os dados filtrados
+function atualizarPainelResultadoPeriodo(historicoPeriodo) {
+
     const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
     const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
 
-    function normalizarData(data) {
-        const d = new Date(data);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    }
+    const msg = document.getElementById("mensagem-periodo");
+    const periodo = document.getElementById("periodo-analisado");
 
-    function dataBRparaDate(dataBR) {
-        const [dia, mes, ano] = dataBR.split('/').map(Number);
-        return new Date(ano, mes - 1, dia);
-    }
+    const dataInicio = document.getElementById("data-inicio").value;
+    const dataFim = document.getElementById("data-fim").value;
 
-    function inicioDaSemana(dataBase) {
-        const d = new Date(dataBase);
-        const diaSemana = d.getDay();
-        const ajuste = diaSemana === 0 ? 6 : diaSemana - 1;
-        d.setDate(d.getDate() - ajuste);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    }
+    if (dataInicio && dataFim) {
 
-    function inicioDoMes(dataBase) {
-        return new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
-    }
+        const inicioFormatado = formatarDataExibicao(dataInicio);
+        const fimFormatado = formatarDataExibicao(dataFim);
 
-    function formatarMoeda(valor) {
-        return `R$ ${valor.toFixed(2).replace('.', ',')}`;
-    }
+        periodo.textContent =
+        `📅 Período analisado: ${inicioFormatado} → ${fimFormatado}`;
 
-    const hoje = normalizarData(new Date());
-    let dataInicio = null;
-    let dataFim = hoje;
-    let titulo = '📊 Resultado Total';
-
-    if (tipo === 'diario') {
-        dataInicio = hoje;
-        titulo = '☀️ Resultado Diário';
-    } else if (tipo === 'semanal') {
-        dataInicio = inicioDaSemana(hoje);
-        titulo = '🗓️ Resultado Semanal';
-    } else if (tipo === 'mensal') {
-        dataInicio = inicioDoMes(hoje);
-        titulo = '📅 Resultado Mensal';
     }
 
     let totalApurado = 0;
@@ -1272,18 +1228,36 @@ function atualizarPainelResultados(tipo = 'total') {
     let totalMin = 0;
     let totalCustos = 0;
 
-    Object.keys(historico).forEach(data => {
-        const dataDia = normalizarData(dataBRparaDate(data));
+    const datas = Object.keys(historicoPeriodo);
 
-        const dentroDoPeriodo =
-            (dataInicio === null || dataDia >= dataInicio) &&
-            dataDia <= dataFim;
+    if (datas.length === 0) {
 
-        if (!dentroDoPeriodo) return;
+        msg.textContent = "📭 Nenhum resultado encontrado neste período.";
 
-        historico[data].sessoes.forEach(s => {
+        document.getElementById('painel-apurado-total').textContent = "R$ 0,00";
+        document.getElementById('painel-lucro-total').textContent = "R$ 0,00";
+        document.getElementById('painel-custos-total').textContent = "R$ 0,00";
+        document.getElementById('painel-km-total').textContent = "0 km";
+        document.getElementById('painel-hora-apurado').textContent = "R$ 0,00/h";
+        document.getElementById('painel-hora-lucro').textContent = "R$ 0,00/h";
+        document.getElementById('painel-apurado-km').textContent = "R$ 0,00/km";
+        document.getElementById('painel-lucro-km').textContent = "R$ 0,00/km";
+
+        return;
+    }
+
+    msg.textContent = "";
+
+    datas.forEach(data => {
+
+        const dia = historicoPeriodo[data];
+
+        dia.sessoes.forEach(s => {
+
             totalApurado += s.apurado;
-            totalKM += (s.kF - s.kI);
+
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
 
             const [hI, mI] = s.hI.split(':').map(Number);
             const [hF, mF] = s.hF.split(':').map(Number);
@@ -1292,70 +1266,42 @@ function atualizarPainelResultados(tipo = 'total') {
             if (diff < 0) diff += 1440;
 
             totalMin += diff;
+
         });
-    });
 
-    abastecimentos.forEach(a => {
-        const dataCusto = normalizarData(dataBRparaDate(a.data));
+        const abastDia = abastecimentos
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
 
-        const dentroDoPeriodo =
-            (dataInicio === null || dataCusto >= dataInicio) &&
-            dataCusto <= dataFim;
+        const outrosDia = outros
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
 
-        if (dentroDoPeriodo) totalCustos += a.valor;
-    });
+        totalCustos += abastDia + outrosDia;
 
-    outros.forEach(c => {
-        const dataCusto = normalizarData(dataBRparaDate(c.data));
-
-        const dentroDoPeriodo =
-            (dataInicio === null || dataCusto >= dataInicio) &&
-            dataCusto <= dataFim;
-
-        if (dentroDoPeriodo) totalCustos += c.valor;
     });
 
     const totalLucro = totalApurado - totalCustos;
+
     const horas = totalMin / 60;
 
     const horaApurado = horas > 0 ? totalApurado / horas : 0;
     const horaLucro = horas > 0 ? totalLucro / horas : 0;
+
     const kmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
     const kmLucro = totalKM > 0 ? totalLucro / totalKM : 0;
 
-    const container = document.getElementById('resultado-acompanhamento');
+    document.getElementById('painel-apurado-total').textContent = `R$ ${totalApurado.toFixed(2).replace('.', ',')}`;
+    document.getElementById('painel-lucro-total').textContent = `R$ ${totalLucro.toFixed(2).replace('.', ',')}`;
+    document.getElementById('painel-custos-total').textContent = `R$ ${totalCustos.toFixed(2).replace('.', ',')}`;
 
-    container.innerHTML = `
-        <h3 style="margin-bottom:10px;">${titulo}</h3>
+    document.getElementById('painel-km-total').textContent = `${totalKM} km`;
 
-        <p>Apurado Total:</p>
-        <h2 style="color:#60a5fa;">${formatarMoeda(totalApurado)}</h2>
+    document.getElementById('painel-hora-apurado').textContent = `R$ ${horaApurado.toFixed(2).replace('.', ',')}/h`;
+    document.getElementById('painel-hora-lucro').textContent = `R$ ${horaLucro.toFixed(2).replace('.', ',')}/h`;
 
-        <p>Lucro Total:</p>
-        <h2 style="color:#4ade80;">${formatarMoeda(totalLucro)}</h2>
+    document.getElementById('painel-apurado-km').textContent = `R$ ${kmApurado.toFixed(2).replace('.', ',')}/km`;
+    document.getElementById('painel-lucro-km').textContent = `R$ ${kmLucro.toFixed(2).replace('.', ',')}/km`;
 
-        <p>Custos Totais:</p>
-        <h2 style="color:#f87171;">${formatarMoeda(totalCustos)}</h2>
-
-        <hr>
-
-        <p>KM Total Rodado:</p>
-        <h2>${totalKM} km</h2>
-
-        <hr>
-
-        <p>Média por Hora (Apurado):</p>
-        <h2>${formatarMoeda(horaApurado)}/h</h2>
-
-        <p>Apurado por KM:</p>
-        <h2>${formatarMoeda(kmApurado)}/km</h2>
-
-        <hr>
-
-        <p>Média por Hora (Lucro):</p>
-        <h2>${formatarMoeda(horaLucro)}/h</h2>
-
-        <p>Lucro por KM:</p>
-        <h2>${formatarMoeda(kmLucro)}/km</h2>
-    `;
 }
+
