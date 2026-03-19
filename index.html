@@ -1,461 +1,1361 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Controle Diário</title>
-
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="visual.css">
-</head>
-
-<body>
-<main class="app">
-
-  <!-- HEADER -->
-  <header class="app-header">
-    <h1>Bem-vindo</h1>
-    <p id="status-indicador">🔴 Turno inativo</p>
-
-    <div class="datetime">
-      <span id="current-date"></span>
-      <span id="current-time"></span>
-    </div>
-  </header>
-  
- 
-  <!-- MENU PRINCIPAL -->
-  <section class="menu" id="menu-principal">
-
-    <button class="menu-card" data-action="turno">
-      <div class="icon icon-turno">🚗</div>
-      <div class="text">
-        <h2>Gerenciar Turno</h2>
-        <p>Inicie, acompanhe e finalize seu turno</p>
-      </div>
-    </button>
-
-    <button class="menu-card" data-action="custos">
-      <div class="icon icon-custos">💸</div>
-      <div class="text">
-        <h2>Custos</h2>
-        <p>Registre combustível e despesas</p>
-      </div>
-    </button>
-
-    <button class="menu-card" data-action="resumos">
-      <div class="icon icon-resumo">📊</div>
-      <div class="text">
-        <h2>Resumos</h2>
-        <p>Resultados e histórico</p>
-      </div>
-    </button>
+// ==========================================
+// 1. ESTADO E NAVEGAÇÃO.
+// ==========================================
+const screens = {
+    menu: document.getElementById('menu-principal'),
+    menuTurno: document.getElementById('screen-menu-turno'),
+    iniciar: document.getElementById('screen-turno'),
+    finalizar: document.getElementById('screen-finalizar-turno'),
+    custos: document.getElementById('screen-menu-custos'),
+    abastecimento: document.getElementById('screen-abastecimento'),
+    outrosCustos: document.getElementById('screen-outros-custos'),
+    resumos: document.getElementById('screen-resumos'),
+    resumoDiario: document.getElementById('screen-resumo-diario'),
+    historicoGeral: document.getElementById('screen-historico-geral'),
+	acompanhando: document.getElementById('screen-acompanhando-resultados'),
+	metas: document.getElementById('screen-metas'),
+    metaMensal: document.getElementById('screen-meta-mensal'),
+    metaSemanal: document.getElementById('screen-meta-semanal'),
+    metaDiaria: document.getElementById('screen-meta-diaria'),
+    metaDataValor: document.getElementById('screen-meta-data-valor')
 	
-	    <button class="menu-card" data-action="metas">
-      <div class="icon icon-metas">🎯</div>
-      <div class="text">
-        <h2>Metas</h2>
-        <p>Objetivos diários</p>
-      </div>
-    </button>
-	
-	<button class="menu-card" data-action="acompanhando">
-	<div class="icon icon-acompanhando">📊</div>
-	<div class="text">
-		<h2>Acompanhando Resultados</h2>
-		<p>Dados Financeiros</p>
-	</div>
-	</button>
-	
-	
-  </section>
+	};
 
-  <!-- MENU TURNO -->
-  <section class="screen hidden" id="screen-menu-turno">
+function showScreen(screen) {
+    Object.values(screens).forEach(s => { if(s) s.classList.add('hidden'); });
+    if (screen) screen.classList.remove('hidden');
+    window.scrollTo(0, 0);
+}
 
-  <h2 class="screen-title">Gerenciar Turno</h2>
+function updateDateTime() {
+    const now = new Date();
+    const dateEl = document.getElementById('current-date');
+    const timeEl = document.getElementById('current-time');
+    if(dateEl) dateEl.textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+    if(timeEl) timeEl.textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateDateTime, 60000);
+updateDateTime();
 
-  <div class="screen-actions">
+// ==========================================
+// 2. GESTÃO DE DADOS (LOCALSTORAGE)
+// ==========================================
 
-    <button class="btn btn-primary" id="btn-ir-iniciar-turno">
-      Iniciar Turno
-    </button>
+const getData = (key) => JSON.parse(localStorage.getItem(key)) || [];
+const setData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
 
-    <button class="btn btn-danger" id="btn-ir-finalizar-turno">
-      Finalizar Turno
-    </button>
+function formatarDataExibicao(data){
 
-    <button class="btn btn-back" id="voltar-menu-principal">
-      ← Voltar
-    </button>
-	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
+    if(!data) return "";
 
-  </div>
+    if(data.includes("-")){ // formato YYYY-MM-DD
+        const [ano, mes, dia] = data.split("-");
+        return `${dia}-${mes}-${ano}`;
+    }
 
-</section>
+    if(data.includes("/")){ // formato DD/MM/YYYY
+        const [dia, mes, ano] = data.split("/");
+        return `${dia}-${mes}-${ano}`;
+    }
 
-  <!-- INICIAR TURNO -->
-  <section class="screen hidden" id="screen-turno">
-    <h2 class="screen-title">Iniciar Turno</h2>
+    return data;
+}
 
-    <div class="form-group">
-      <label>Hora inicial</label>
-      <div class="inline">
-		<input type="time" id="hora-inicio">
-		<button type="button" class="btn-secondary" id="btn-hora-atual">Agora</button>
-		</div>
-    </div>
+// ==========================================
+// 3. LÓGICA DE TURNOS E SESSÕES
+// ==========================================
 
-    <div class="form-group">
-      <label>KM inicial</label>
-      <input type="number" id="km-inicial">
-    </div>
+function gerenciarEstadoInterface() {
+    const turnoAtivo = JSON.parse(localStorage.getItem('turnoAtivo'));
+    const statusInd = document.getElementById('status-indicador');
+    const btnIni = document.getElementById('btn-iniciar-turno');
 
-    <button class="btn btn-primary" id="btn-iniciar-turno">Iniciar Turno</button>
-    <p class="status-message" id="status-turno"></p>
-    <button class="btn btn-back" id="voltar-menu-turno">← Voltar</button>
-	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-  </section>
-  
+    if (turnoAtivo && turnoAtivo.ativo) {
+        statusInd.textContent = '🟢 Turno ativo';
+        if(btnIni) { btnIni.disabled = true; btnIni.textContent = "Turno em Andamento"; }
+    } else {
+        statusInd.textContent = '🔴 Turno inativo';
+        if(btnIni) { btnIni.disabled = false; btnIni.textContent = "Iniciar Turno"; }
+    }
+}
 
-  <!-- FINALIZAR TURNO -->
-  <section class="screen hidden" id="screen-finalizar-turno">
-    <h2 class="screen-title">Finalizar Turno</h2>
+document.getElementById('btn-iniciar-turno').onclick = () => {
+    const h = document.getElementById('hora-inicio').value;
+    const k = document.getElementById('km-inicial').value;
+    if(!h || !k) return alert("Informe Hora e KM inicial!");
 
-    <div class="form-group">
-      <label>Hora final</label>
-      <div class="inline">
-		<input type="time" id="hora-fim">
-		<button type="button" class="btn-secondary" id="btn-hora-final-atual">Agora</button>
-		</div>
-    </div>
+    localStorage.setItem('turnoAtivo', JSON.stringify({ 
+        ativo: true, horaInicio: h, kmInicial: parseFloat(k), data: new Date().toLocaleDateString('pt-BR') 
+    }));
+    gerenciarEstadoInterface();
+    showScreen(screens.menu);
+};
 
-    <div class="form-group">
-      <label>KM final</label>
-      <input type="number" id="km-final">
-    </div>
+document.getElementById('btn-finalizar-turno').onclick = () => {
+    const turnoAtivo = JSON.parse(localStorage.getItem('turnoAtivo'));
+    if (!turnoAtivo) return alert("⚠️ Erro: Não há turno ativo!");
 
-    <div class="form-group">
-      <label>Apurado (R$)</label>
-      <input type="number" id="apurado" step="0.01">
-    </div>
+    const hF = document.getElementById('hora-fim').value;
+    const kF = parseFloat(document.getElementById('km-final').value);
+    const apu = parseFloat(document.getElementById('apurado').value);
 
-<button class="btn btn-primary" id="btn-finalizar-turno">Finalizar Turno</button>
-    <p class="status-message" id="status-finalizar"></p>
-<button class="btn btn-back" id="voltar-menu-finalizar">← Voltar</button>
-<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-  </section>
+    if(!hF || isNaN(kF) || isNaN(apu)) return alert("Preencha todos os campos!");
 
-<!-- MENU CUSTOS (PRINCIPAL) COM RESUMO -->
-<section class="screen hidden" id="screen-menu-custos">
-  <h2 class="screen-title">Custos</h2>
-  
-  <!-- NOVO BLOCO DE RESUMO RÁPIDO -->
-  <div class="resumo-dia" style="background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-    <p style="font-size: 14px; opacity: 0.8;">Resumo de hoje:</p>
-    <p>⛽ Abastecimento: <strong id="resumo-custo-abast">R$ 0,00</strong></p>
-    <p>🍕 Outros Custos: <strong id="resumo-custo-outros">R$ 0,00</strong></p>
-    <hr style="margin: 10px 0; border: 0; border-top: 1px solid var(--gray);">
-    <p>💰 Total: <strong id="resumo-custo-total" style="color: var(--orange); font-size: 1.2em;">R$ 0,00</strong></p>
-  </div>
+    const hoje = turnoAtivo.data;
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
 
-  <div class="screen-actions">
-    <button class="btn btn-primary" id="btn-ir-abastecimento">Abastecimento</button>
-    <button class="btn btn-warning" id="btn-ir-outros-custos">Outros Custos</button>
-    <button class="btn btn-back" id="voltar-custos-principal">← Voltar</button>
-    <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-  </div>
-</section>
+    if (!historico[hoje]) {
+        historico[hoje] = { sessoes: [] };
+    }
 
+    historico[hoje].sessoes.push({
+        id: Date.now(),
+        hI: turnoAtivo.horaInicio,
+        hF: hF,
+        kI: turnoAtivo.kmInicial,
+        kF: kF,
+        apurado: apu
+    });
 
-<!-- TELA: ABASTECIMENTO -->
-<section class="screen hidden" id="screen-abastecimento">
-  <h2 class="screen-title">Abastecimento</h2>
-  <div class="form-group">
-    <label>Valor do Abastecimento (R$)</label>
-    <input type="number" id="valor-abastecimento" placeholder="Ex: 50.00" step="0.01">
-  </div>
-  <button class="btn btn-primary" id="btn-salvar-abastecimento">Inserir Abastecimento</button>
-  
-  <div class="resumo-custo" style="margin-top:20px; text-align:center;">
-    <p>Total abastecido hoje:</p>
-	<ul id="lista-abastecimentos-hoje"></ul>
-    <h3 id="total-abastecido-dia">R$ 0,00</h3>
-	
-  </div>
-  
-  <button class="btn btn-back" id="voltar-menu-custos-abast">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
-
-<!-- TELA: OUTROS CUSTOS -->
-<section class="screen hidden" id="screen-outros-custos">
-  <h2 class="screen-title">Outros Custos</h2>
-  
-  <div class="form-group">
-    <label>Tipo de Custo</label>
-    <select id="tipo-custo" class="btn-secondary" style="width:100%; padding:12px; margin-bottom:10px;">
-      <option value="Agua">Água</option>
-      <option value="Alimentacao">Alimentação</option>
-      <option value="Estacionamento">Estacionamento</option>
-      <option value="Outros">Outros (Descrever)</option>
-    </select>
-  </div>
-
-  <div class="form-group hidden" id="group-desc-outros">
-    <label>Descrição</label>
-    <input type="text" id="desc-custo-outros" placeholder="Ex: Almoço no Zé">
-  </div>
-
-  <div class="form-group">
-    <label>Valor (R$)</label>
-    <input type="number" id="valor-custo-outro" step="0.01">
-  </div>
-
-  <button class="btn btn-warning" id="btn-salvar-custo-outro">Adicionar Custo</button>
-
-  <div class="lista-custos-container" style="margin-top:20px;">
-    <p>Total de custos: <strong id="total-outros-valor">R$ 0,00</strong></p>
-    <ul id="lista-detalhada-custos" style="list-style:none; padding:0; margin-top:10px;">
-      <!-- Itens entrarão aqui via JS -->
-    </ul>
-  </div>
-
-  <button class="btn btn-back" id="voltar-menu-custos-outros">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
-
-<!-- TELA ESCOLHA RESUMOS -->
-<section class="screen hidden" id="screen-resumos">
-  <h2 class="screen-title">Resumos</h2>
-  <div class="screen-actions">
-    <button class="btn btn-primary" id="btn-resumo-diario">Resumo Diário</button>
-    <button class="btn btn-primary" id="btn-historico-geral">Histórico Geral</button>
-    <button class="btn btn-back" id="voltar-menu-resumos">← Voltar</button>
-	<button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-  </div>
-</section>
-
-<!-- TELA RESUMO DIÁRIO -->
-<section class="screen hidden" id="screen-resumo-diario">
-  <h2 class="screen-title">Resumo Diário</h2>
-  <div class="resumo-dia">
-    <p><strong>Intervalo total:</strong> <span id="resumo-intervalo">--:--</span></p>
-    <p><strong>KM total rodado:</strong> <span id="resumo-km">0</span> km</p>
-    <p><strong>Total Abastecido:</strong> R$ <span id="resumo-abastecimento">0,00</span></p>
-    <p><strong>Outros Custos:</strong> R$ <span id="resumo-outros">0,00</span></p>
-    <p><strong>Valor Apurado:</strong> R$ <span id="resumo-apurado">0,00</span></p>
-    <p><strong>Lucro do Dia:</strong> R$ <span id="resumo-lucro">0,00</span></p>
-    <p><strong>Valor Médio da Hora:</strong> R$ <span id="resumo-hora">0,00</span> /h</p>
-  </div>
-  <button class="btn btn-back" id="voltar-resumo-diario">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
-
-<!-- TELA HISTÓRICO GERAL -->
-<section class="screen hidden" id="screen-historico-geral">
-  <h2 class="screen-title">Histórico Geral</h2>
-  
-  <div class="historico-botoes">
-    <button class="btn btn-warning" id="export-pdf">Exportar PDF</button>
-    <button class="btn btn-warning" id="export-excel">Exportar Excel</button>
-    <button class="btn btn-warning" id="export-mensal">Exportar Relatório Mensal</button>
-</div>
-
-  <ul id="lista-historico" style="list-style:none; padding:0; margin-top:10px;">
-    <!-- Cada turno será exibido aqui via JS -->
-  </ul>
-
-  <button class="btn btn-back" id="voltar-historico">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
-
-<div id="screen-acompanhando-resultados" class="hidden">
-
-    <div class="top-bar" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
-
+    localStorage.setItem('historico_dias', JSON.stringify(historico));
+    localStorage.removeItem('turnoAtivo');
     
-    <h2 style="flex:1; text-align:center; margin-right:60px;">
-        Acompanhando Resultados
-    </h2>
+    gerenciarEstadoInterface();
+    alert("✅ Sessão salva no dia!");
+	atualizarResumoGeral();
+    showScreen(screens.menu);
+};
 
-	<p id="periodo-analisado" style="text-align:center; color:var(--muted); margin-bottom:6px;"></p>
-	<p id="mensagem-periodo" style="text-align:center; color:var(--muted); margin-bottom:10px;"></p>
+
+// ==========================================
+// 4. CUSTOS
+// ==========================================
+
+document.getElementById('btn-salvar-abastecimento').onclick = () => {
+
+    const valor = parseFloat(document.getElementById('valor-abastecimento').value);
+
+    if (!valor) return alert("Valor inválido!");
+
+    const lista = getData('abastecimentos');
+
+    const agora = new Date();
+
+    lista.push({
+        id: Date.now(),
+        data: agora.toLocaleDateString('pt-BR'),
+        hora: agora.toTimeString().slice(0,5),
+        valor
+    });
+
+    setData('abastecimentos', lista);
+
+    document.getElementById('valor-abastecimento').value = "";
+
+    atualizarPainelResumoCustos();
+    atualizarResumoAbastecimento();
+    atualizarResumoGeral();
+    atualizarListaAbastecimentos();
+
+    alert("Salvo!");
+	atualizarPainelResultado();
+};
+
+document.getElementById('btn-salvar-custo-outro').onclick = () => {
+    const tipo = document.getElementById('tipo-custo').value;
+    const descInput = document.getElementById('desc-custo-outros'); // Referência ao input
+    const valorInput = document.getElementById('valor-custo-outro');
+    const valor = parseFloat(valorInput.value);
+
+    if (!valor) return alert("Insira o valor do custo!");
+
+    const lista = getData('outros_custos');
+    lista.push({ 
+    id: Date.now(),
+    data: new Date().toLocaleDateString('pt-BR'), 
+    desc: tipo === 'Outros' ? descInput.value : tipo, 
+    valor: valor 
+});
+    setData('outros_custos', lista);
+
+    // LIMPEZA DOS CAMPOS APÓS ADICIONAR
+    valorInput.value = '';
+    descInput.value = ''; // Esta linha limpa a descrição
+    atualizarPainelResumoCustos();
+    atualizarListaCustos();
+	atualizarResumoGeral();
+    alert("Custo adicionado!");
+	atualizarPainelResultado();
+};
 
 
-</div>
+function atualizarResumoAbastecimento() {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const total = getData('abastecimentos').filter(a => a.data === hoje).reduce((acc, a) => acc + a.valor, 0);
+    const el = document.getElementById('total-abastecido-dia');
+    if(el) el.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+}
 
-    <div class="container">
+function atualizarListaAbastecimentos(){
 
-         <div class="resumo-card">
+    const hoje = new Date().toLocaleDateString('pt-BR');
 
-            <h3 style="margin-bottom:10px;">📊 Resultado Geral</h3>
-			
-			<!-- Seção para selecionar o período -->
-<div class="form-group">
-    <label for="data-inicio">Data Início:</label>
-    <input type="date" id="data-inicio" name="data-inicio">
-</div>
+    const lista = getData('abastecimentos')
+        .filter(a => a.data === hoje)
+        .sort((a,b) => b.id - a.id); // mais recente primeiro
 
-<div class="form-group">
-    <label for="data-fim">Data Fim:</label>
-    <input type="date" id="data-fim" name="data-fim">
-</div>
+    const ul = document.getElementById("lista-abastecimentos-hoje");
 
-<button id="btn-filtrar-periodo" class="btn btn-primary">Filtrar por Período</button>
+    if(!ul) return;
+
+    ul.innerHTML = lista.map(a => `
+        <li style="
+            background:#374151;
+            padding:10px;
+            border-radius:8px;
+            margin-bottom:6px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+        ">
+
+            <span>
+                ⛽ ${a.hora || '--:--'} • 
+                <strong>R$ ${a.valor.toFixed(2).replace('.',',')}</strong>
+            </span>
+
+            <button 
+				class="btn-excluir"
+				onclick="removerAbastecimento(${a.id})">
+				Excluir
+			</button>
+
+        </li>
+    `).join('');
+}
+
+function removerAbastecimento(id){
+
+    if(!confirm("Deseja remover este abastecimento?")) return;
+
+    let lista = getData('abastecimentos');
+
+    lista = lista.filter(a => a.id !== id);
+
+    setData('abastecimentos', lista);
+
+    atualizarResumoAbastecimento();
+    atualizarPainelResumoCustos();
+    atualizarResumoGeral();
+    atualizarListaAbastecimentos();
+
+}
+
+function atualizarListaCustos() {
+
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const custosHoje = getData('outros_custos').filter(c => c.data === hoje);
+
+    const total = custosHoje.reduce((acc, c) => acc + c.valor, 0);
+
+    const totalUI = document.getElementById('total-outros-valor');
+    const listaUI = document.getElementById('lista-detalhada-custos');
+
+    if (totalUI) {
+        totalUI.textContent = `R$ ${total.toFixed(2).replace('.', ',')}`;
+    }
+
+    if (listaUI) {
+
+        listaUI.innerHTML = custosHoje.map(c => `
+            <li style="background:#374151;padding:10px;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                
+                <span>${c.desc}</span>
+
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <strong>R$ ${c.valor.toFixed(2).replace('.', ',')}</strong>
+
+                    <button
+						class="btn-excluir"
+						onclick="removerCusto(${c.id})">
+						Excluir
+					</button>
+                </div>
+
+            </li>
+        `).join('');
+
+    }
+
+}
+
+function removerCusto(id){
+
+    if(!confirm("Deseja remover este custo?")) return;
+
+    let lista = getData('outros_custos');
+
+    lista = lista.filter(c => c.id !== id);
+
+    setData('outros_custos', lista);
+
+    atualizarListaCustos();
+    atualizarPainelResumoCustos();
+    atualizarResumoGeral();
+
+}
+
+// ==========================================
+// 5. RENDERIZAÇÃO DE CARDS (O CORAÇÃO DO APP)
+// ==========================================
+
+function excluirSessao(data, id) {
+    if(!confirm("Deseja excluir esta sessão?")) return;
+    const historico = JSON.parse(localStorage.getItem('historico_dias'));
+    historico[data].sessoes = historico[data].sessoes.filter(s => s.id !== id);
+    
+    if(historico[data].sessoes.length === 0) delete historico[data];
+    
+    localStorage.setItem('historico_dias', JSON.stringify(historico));
+    document.getElementById('btn-historico-geral').click(); // Recarrega tela
+}
+
+function renderizarDia(data, infoDia) {
+    const abast = getData('abastecimentos')
+        .filter(a => a.data === data)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    const outros = getData('outros_custos')
+        .filter(c => c.data === data)
+        .reduce((acc, c) => acc + c.valor, 0);
+    
+    let totalKM = 0;
+    let totalApurado = 0;
+    let totalMinutos = 0;
+
+    const sessoesHTML = infoDia.sessoes.map((s, index) => {
+        const kmSessao = (s.kF - s.kI);
+        totalKM += kmSessao;
+        totalApurado += s.apurado;
+        
+        const [hI, mI] = s.hI.split(':').map(Number);
+        const [hF, mF] = s.hF.split(':').map(Number);
+
+        let diff = (hF * 60 + mF) - (hI * 60 + mI);
+        if (diff < 0) diff += 1440;
+
+        totalMinutos += diff;
+
+        return `
+        <div style="font-size: 13px; color: var(--muted); background: rgba(0,0,0,0.1); padding: 8px; border-radius: 8px; margin-bottom: 8px; position: relative;">
+            <strong>Sessão ${index + 1}:</strong> ${s.hI} às ${s.hF} | 
+            KM: ${kmSessao} | Apur: R$ ${s.apurado.toFixed(2).replace('.', ',')}
+            <button onclick="excluirSessao('${data}', ${s.id})"
+                style="background:none; border:none; color:var(--red); font-size:18px; position:absolute; right:10px; top:5px; cursor:pointer;">
+                &times;
+            </button>
+        </div>`;
+    }).join('');
+
+    const lucro = totalApurado - abast - outros;
+	
+	// CUSTOS TOTAIS
+const totalCustos = abast + outros;
+
+// CUSTO POR KM
+const custoPorKm = totalKM > 0 ? totalCustos / totalKM : 0;
+
+    // -------------------------
+    // MÉTRICAS BRUTAS (APURADO)
+    // -------------------------
+    const valorHoraBruto = totalMinutos > 0 ? totalApurado / (totalMinutos / 60) : 0;
+    const valorKmBruto = totalKM > 0 ? totalApurado / totalKM : 0;
+
+    // -------------------------
+    // MÉTRICAS LÍQUIDAS (LUCRO)
+    // -------------------------
+    const valorHoraLiquido = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+    const valorKmLiquido = totalKM > 0 ? lucro / totalKM : 0;
+
+    const intervaloFormatado =
+        `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:` +
+        `${(totalMinutos%60).toString().padStart(2,'0')}h`;
+
+    return `
+    <div class="resumo-card">
+        <div class="card-header">
+            <span class="card-title">Resumo Diário</span>
+            <span class="card-date">${data}</span>
+        </div>
+
+        <div class="card-body">
+
+            <p><span>Intervalo total:</span> <strong>${intervaloFormatado}</strong></p>
+            <p><span>KM total rodado:</span> <strong>${totalKM} km</strong></p>
+            <p><span>Total Abastecido:</span> <strong>R$ ${abast.toFixed(2).replace('.',',')}</strong></p>
+            <p><span>Outros Custos:</span> <strong>R$ ${outros.toFixed(2).replace('.',',')}</strong></p>
+            <p><span>Valor Apurado:</span> <strong>R$ ${totalApurado.toFixed(2).replace('.',',')}</strong></p>
+
+            <hr>
+
+            <p style="color: ${lucro >= 0 ? '#4ade80' : '#ef4444'}; font-size: 18px; font-weight: bold;">
+                <span>Lucro do Dia:</span> 
+                <span>R$ ${lucro.toFixed(2).replace('.', ',')}</span>
+            </p>
+
+            <hr>
+
+            <p style="font-size:14px; font-weight:bold; margin-top:10px;">📊 Produtividade Bruta (Apurado)</p>
+            <p>Média por Hora: <strong>R$ ${valorHoraBruto.toFixed(2).replace('.',',')}/h</strong></p>
+            <p>Valor por KM: <strong>R$ ${valorKmBruto.toFixed(2).replace('.',',')}/km</strong></p>
+
+            <hr>
+
+            <p style="font-size:14px; font-weight:bold; margin-top:10px;">💰 Rentabilidade Líquida (Lucro)</p>
+            <p>Média por Hora: <strong>R$ ${valorHoraLiquido.toFixed(2).replace('.',',')}/h</strong></p>
+            <p>Valor por KM: <strong>R$ ${valorKmLiquido.toFixed(2).replace('.',',')}/km</strong></p>
+
+            <hr>
+
+            <p style="font-size: 12px; text-transform: uppercase; color: var(--blue); margin-bottom: 10px; font-weight: bold;">
+                Detalhamento de Sessões:
+            </p>
+
+            <div>${sessoesHTML}</div>
+        </div>
+    </div>`;
+}
+
+   
+    
+
+// ==========================================
+// 6. EVENTOS E NAVEGAÇÃO
+// ==========================================
+
+document.querySelectorAll('.menu-card').forEach(card => {
+    card.onclick = () => {
+        const action = card.dataset.action;
+        if (action === 'turno') showScreen(screens.menuTurno);
+        
+        if (action === 'custos') { 
+            // 1. Atualiza o Resumo Geral (o novo painel que você pediu)
+            atualizarPainelResumoCustos();             
+            // 2. Deixa as subtelas prontas caso o motorista clique nelas
+            atualizarResumoAbastecimento(); 
+            atualizarListaCustos();             
+            showScreen(screens.custos); 
+        }
+        if (action === 'resumos') showScreen(screens.resumos);
+		if (action === 'metas') showScreen(screens.metas);
+		if (action === 'acompanhando') {
+    document.getElementById('resultado-acompanhamento').innerHTML =
+        '<p style="text-align:center; opacity:0.7;">Selecione uma opção para visualizar os resultados.</p>';
+    showScreen(screens.acompanhando);
+}
+    };
+});
+
+document.getElementById('btn-resumo-diario').onclick = () => {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    if (!historico[hoje]) return alert("Nenhuma sessão finalizada hoje!");
+    
+    const container = document.querySelector('#screen-resumo-diario .resumo-dia');
+    container.innerHTML = renderizarDia(hoje, historico[hoje]);
+    showScreen(screens.resumoDiario);
+};
+
+document.getElementById('btn-historico-geral').onclick = () => {
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const lista = document.getElementById('lista-historico');
+    const chaves = Object.keys(historico).reverse();
+    
+    if (chaves.length === 0) {
+        lista.innerHTML = "<p style='text-align:center'>Nenhum histórico encontrado.</p>";
+    } else {
+        lista.innerHTML = chaves.map(data => renderizarDia(data, historico[data])).join('');
+    }
+    showScreen(screens.historicoGeral);
+};
+
+// Botões Auxiliares
+document.getElementById('btn-ir-iniciar-turno').onclick = () => showScreen(screens.iniciar);
+document.getElementById('btn-ir-finalizar-turno').onclick = () => showScreen(screens.finalizar);
+document.getElementById('btn-ir-abastecimento').onclick = () => showScreen(screens.abastecimento);
+document.getElementById('btn-ir-outros-custos').onclick = () => showScreen(screens.outrosCustos);
+document.getElementById('btn-hora-atual').onclick = () => document.getElementById('hora-inicio').value = new Date().toTimeString().slice(0, 5);
+document.getElementById('btn-hora-final-atual').onclick = () => document.getElementById('hora-fim').value = new Date().toTimeString().slice(0, 5);
+document.getElementById('tipo-custo').onchange = (e) => document.getElementById('group-desc-outros').classList.toggle('hidden', e.target.value !== 'Outros');
+document.getElementById('btn-resultado-total').onclick = () => atualizarPainelResultados('total');
+document.getElementById('btn-resultado-mensal').onclick = () => atualizarPainelResultados('mensal');
+document.getElementById('btn-resultado-semanal').onclick = () => atualizarPainelResultados('semanal');
+document.getElementById('btn-resultado-diario').onclick = () => atualizarPainelResultados('diario');
+
+
+
+// Botões Voltar
+const botoesVoltar = [
+    ['voltar-menu-principal', screens.menu],
+	['voltar-menu-turno', screens.menuTurno],
+    ['voltar-menu-finalizar', screens.menuTurno],
+	['voltar-custos-principal', screens.menu],
+    ['voltar-menu-custos-abast', screens.custos],
+	['voltar-menu-custos-outros', screens.custos],
+    ['voltar-menu-resumos', screens.menu],
+	['voltar-resumo-diario', screens.resumos],
+	['voltar-historico', screens.resumos],
+	['voltar-acompanhando', screens.menu],
+	//['voltar-menu-metas', screens.menu],
+	['voltar-metas-mensal', screens.metas],
+    ['voltar-metas-semanal', screens.metas],
+    ['voltar-metas-diaria', screens.metas],
+    ['voltar-metas-data', screens.metas]
+];
+botoesVoltar.forEach(([id, screen]) => {
+    const btn = document.getElementById(id);
+    if(btn) btn.onclick = () => showScreen(screen);
+	
+});
+
+window.onload = () => {
+    gerenciarEstadoInterface();
+    atualizarResumoGeral();
+};
+
+// ==========================================
+// 8. EXPORTAÇÃO (PDF E EXCEL) REVISADA
+// ==========================================
+
+// --- EXPORTAR PARA PDF (COM TOTAIS E LUCRO) ---
+document.getElementById('export-pdf').onclick = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const chaves = Object.keys(historico).reverse();
+
+    if (chaves.length === 0) return alert("Não há dados para exportar!");
+
+    let yPos = 20;
+    doc.setFontSize(16);
+    doc.text("Relatório Detalhado - Controle Diário", 14, yPos);
+    yPos += 10;
+
+    chaves.forEach((data) => {
+        const infoDia = historico[data];
+        
+        // Busca custos do dia para o cálculo
+        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || []).filter(a => a.data === data).reduce((acc, a) => acc + a.valor, 0);
+        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || []).filter(c => c.data === data).reduce((acc, c) => acc + c.valor, 0);
+        
+        let totalKM = 0, totalApurado = 0, totalMinutos = 0;
+
+        // Prepara as linhas da tabela de sessões
+        const corpoTabela = infoDia.sessoes.map((s, idx) => {
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
+            totalApurado += s.apurado;
+            
+            // Cálculo de tempo
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+            totalMinutos += diff;
+
+            return [idx + 1, s.hI, s.hF, `${kmSessao} km`, `R$ ${s.apurado.toFixed(2)}` ];
+        });
+
+        const lucro = totalApurado - abast - outros;
+        // MÉTRICAS BASEADAS NO APURADO
+		const valorHoraApurado = totalMinutos > 0 ? totalApurado / (totalMinutos / 60) : 0;
+		const valorKmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+		// MÉTRICAS BASEADAS NO LUCRO
+		const valorHoraLucro = totalMinutos > 0 ? lucro / (totalMinutos / 60) : 0;
+		const valorKmLucro = totalKM > 0 ? lucro / totalKM : 0;
+        const tempoFmt = `${Math.floor(totalMinutos/60).toString().padStart(2,'0')}:${(totalMinutos%60).toString().padStart(2,'0')}h`;
+
+        // Verifica se precisa de nova página
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+
+        // Título do Dia
+        doc.setFontSize(11);
+        doc.setTextColor(255, 255, 255);
+        doc.setFillColor(31, 41, 51);
+        doc.rect(14, yPos, 182, 7, 'F');
+        doc.text(`DATA: ${data}`, 16, yPos + 5);
+        
+        // Tabela de sessões
+        doc.autoTable({
+            startY: yPos + 7,
+            head: [['Sessão', 'Início', 'Fim', 'KM', 'Apurado']],
+            body: corpoTabela,
+            theme: 'grid',
+            headStyles: { fillColor: [55, 65, 81] },
+            styles: { fontSize: 9 },
+            margin: { left: 14 }
+        });
+
+        yPos = doc.lastAutoTable.finalY + 6;
+        
+        // Resumo do Dia (O que você solicitou)
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        const resumo = [
+			`Intervalo Total: ${tempoFmt} | KM Total: ${totalKM} km`,
+			`Combustível: R$ ${abast.toFixed(2)} | Outros Custos: R$ ${outros.toFixed(2)}`,
+			`Total Apurado: R$ ${totalApurado.toFixed(2)}`,
+			`Lucro do Dia: R$ ${lucro.toFixed(2)}`,
+			`Média (Apurado): R$ ${valorHoraApurado.toFixed(2)}/h | R$ ${valorKmApurado.toFixed(2)}/km`,
+			`Média (Lucro): R$ ${valorHoraLucro.toFixed(2)}/h | R$ ${valorKmLucro.toFixed(2)}/km`
+		];
+
+        resumo.forEach(linha => {
+            doc.text(linha, 14, yPos);
+            yPos += 5;
+        });
+
+        yPos += 7; // Espaço para o próximo dia
+    });
+
+    doc.save(`Relatorio_Controle_Diario.pdf`);
+};
+
+// --- EXPORTAR PARA EXCEL (CSV DETALHADO) ---
+document.getElementById('export-excel').onclick = () => {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const chaves = Object.keys(historico).reverse();
+
+    if (chaves.length === 0) {
+        alert("Não há dados!");
+        return;
+    }
+
+    let csv = "Data;Intervalo;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h Apurado;R$/km Apurado;Media/h Lucro;R$/km Lucro\n";
+
+    let somaKM = 0;
+    let somaApurado = 0;
+    let somaLucro = 0;
+    let somaAbast = 0;
+    let somaOutros = 0;
+    let somaMin = 0;
+
+    chaves.forEach(data => {
+
+        const info = historico[data];
+
+        const abast = (JSON.parse(localStorage.getItem('abastecimentos')) || [])
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
+
+        const outros = (JSON.parse(localStorage.getItem('outros_custos')) || [])
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
+
+        let totalKM = 0;
+        let totalApurado = 0;
+        let totalMin = 0;
+
+        info.sessoes.forEach(s => {
+
+            const kmSessao = s.kF - s.kI;
+            totalKM += kmSessao;
+            totalApurado += s.apurado;
+
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            totalMin += diff;
+        });
+
+        const lucro = totalApurado - abast - outros;
+        const horas = totalMin / 60;
+
+        const mediaHoraApurado = horas > 0 ? totalApurado / horas : 0;
+        const kmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+
+        const mediaHoraLucro = horas > 0 ? lucro / horas : 0;
+        const kmLucro = totalKM > 0 ? lucro / totalKM : 0;
+
+        const tempo = `${Math.floor(totalMin / 60)}h${totalMin % 60}m`;
+
+        csv += `${data};${tempo};${totalKM};${abast.toFixed(2)};${outros.toFixed(2)};${totalApurado.toFixed(2)};${lucro.toFixed(2)};${mediaHoraApurado.toFixed(2)};${kmApurado.toFixed(2)};${mediaHoraLucro.toFixed(2)};${kmLucro.toFixed(2)}\n`;
+
+        // acumuladores
+        somaKM += totalKM;
+        somaApurado += totalApurado;
+        somaLucro += lucro;
+        somaAbast += abast;
+        somaOutros += outros;
+        somaMin += totalMin;
+
+    });
+
+    const horasTotais = somaMin / 60;
+
+    const mediaHoraApuradoGeral = horasTotais > 0 ? somaApurado / horasTotais : 0;
+    const kmApuradoGeral = somaKM > 0 ? somaApurado / somaKM : 0;
+
+    const mediaHoraLucroGeral = horasTotais > 0 ? somaLucro / horasTotais : 0;
+    const kmLucroGeral = somaKM > 0 ? somaLucro / somaKM : 0;
+
+    csv += "\n";
+    csv += `TOTAL;;${somaKM};${somaAbast.toFixed(2)};${somaOutros.toFixed(2)};${somaApurado.toFixed(2)};${somaLucro.toFixed(2)};;;;\n`;
+    csv += `MEDIA GERAL;;;;;;;${mediaHoraApuradoGeral.toFixed(2)};${kmApuradoGeral.toFixed(2)};${mediaHoraLucroGeral.toFixed(2)};${kmLucroGeral.toFixed(2)}\n`;
+
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+
+    saveAs(blob, "Relatorio_Controle_Diario.csv");
+};
+
+// --- EXPORTAR RELATÓRIO MENSAL ---
+document.getElementById('export-mensal').onclick = () => {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+
+    if (Object.keys(historico).length === 0) {
+        alert("Não há dados!");
+        return;
+    }
+
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outrosCustos = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    const meses = {};
+
+    Object.keys(historico).forEach(data => {
+
+        const [dia, mes, ano] = data.split('/');
+        const chaveMes = `${mes}/${ano}`;
+
+        if (!meses[chaveMes]) {
+            meses[chaveMes] = {
+                km: 0,
+                apurado: 0,
+                lucro: 0,
+                abast: 0,
+                outros: 0,
+                minutos: 0
+            };
+        }
+
+        const info = historico[data];
+
+        let kmDia = 0;
+        let apuradoDia = 0;
+        let minDia = 0;
+
+        info.sessoes.forEach(s => {
+
+            const kmSessao = s.kF - s.kI;
+            kmDia += kmSessao;
+
+            apuradoDia += s.apurado;
+
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            minDia += diff;
+        });
+
+        const abastDia = abastecimentos
+            .filter(a => a.data === data)
+            .reduce((acc, a) => acc + a.valor, 0);
+
+        const outrosDia = outrosCustos
+            .filter(c => c.data === data)
+            .reduce((acc, c) => acc + c.valor, 0);
+
+        const lucroDia = apuradoDia - abastDia - outrosDia;
+
+        meses[chaveMes].km += kmDia;
+        meses[chaveMes].apurado += apuradoDia;
+        meses[chaveMes].lucro += lucroDia;
+        meses[chaveMes].abast += abastDia;
+        meses[chaveMes].outros += outrosDia;
+        meses[chaveMes].minutos += minDia;
+
+    });
+
+    let csv = "Mes;KM Total;Abastecimento;Outros;Apurado;Lucro;Media/h Apurado;R$/km Apurado;Media/h Lucro;R$/km Lucro\n";
+
+    Object.keys(meses).sort().forEach(mes => {
+
+        const dados = meses[mes];
+
+        const horas = dados.minutos / 60;
+
+        const mediaHoraApurado = horas > 0 ? dados.apurado / horas : 0;
+        const kmApurado = dados.km > 0 ? dados.apurado / dados.km : 0;
+
+        const mediaHoraLucro = horas > 0 ? dados.lucro / horas : 0;
+        const kmLucro = dados.km > 0 ? dados.lucro / dados.km : 0;
+
+        csv += `${mes};${dados.km};${dados.abast.toFixed(2)};${dados.outros.toFixed(2)};${dados.apurado.toFixed(2)};${dados.lucro.toFixed(2)};${mediaHoraApurado.toFixed(2)};${kmApurado.toFixed(2)};${mediaHoraLucro.toFixed(2)};${kmLucro.toFixed(2)}\n`;
+
+    });
+
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+
+    saveAs(blob, "Relatorio_Mensal.csv");
+
+};
+
+
+// Função que realiza as somas (adicione ao final do arquivo)
+function atualizarPainelResumoCustos() {
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    
+    // Soma Abastecimentos
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const totalAbast = abastecimentos
+        .filter(a => a.data === hoje)
+        .reduce((acc, a) => acc + a.valor, 0);
+
+    // Soma Outros Custos
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    const totalOutros = outros
+        .filter(c => c.data === hoje)
+        .reduce((acc, c) => acc + c.valor, 0);
+
+    // Escreve os valores no HTML (IDs batendo com o passo 1)
+    const abastEl = document.getElementById('resumo-custo-abast');
+    const outrosEl = document.getElementById('resumo-custo-outros');
+    const totalEl = document.getElementById('resumo-custo-total');
+
+    if(abastEl) abastEl.textContent = `R$ ${totalAbast.toFixed(2).replace('.', ',')}`;
+    if(outrosEl) outrosEl.textContent = `R$ ${totalOutros.toFixed(2).replace('.', ',')}`;
+    if(totalEl) totalEl.textContent = `R$ ${(totalAbast + totalOutros).toFixed(2).replace('.', ',')}`;
+}
+
+// ==========================================
+// 9. LÓGICA DE METAS (PADRÃO VISUAL APP)
+// ==========================================
+
+// --- NAVEGAÇÃO DOS BOTÕES DO MENU DE METAS ---
+document.getElementById('btn-meta-mensal').onclick = () => { showScreen(screens.metaMensal); atualizarProgressoMeta('mensal'); };
+document.getElementById('btn-meta-semanal').onclick = () => { showScreen(screens.metaSemanal); atualizarProgressoMeta('semanal'); };
+document.getElementById('btn-meta-diaria').onclick = () => { showScreen(screens.metaDiaria); atualizarProgressoMeta('diario'); };
+document.getElementById('btn-meta-por-data').onclick = () => { showScreen(screens.metaDataValor); renderizarMetasPorData(); };
+
+// --- SALVAR VALORES DAS METAS ---
+const salvarMetaSimples = (tipo) => {
+    const input = document.getElementById(`input-meta-${tipo}`);
+    if(!input.value) return alert("Insira um valor!");
+    localStorage.setItem(`config_meta_${tipo}`, input.value);
+    atualizarProgressoMeta(tipo);
+    alert("Meta salva!");
+	atualizarPainelResultado();
+};
+
+if(document.getElementById('btn-salvar-meta-mensal')) document.getElementById('btn-salvar-meta-mensal').onclick = () => salvarMetaSimples('mensal');
+if(document.getElementById('btn-salvar-meta-semanal')) document.getElementById('btn-salvar-meta-semanal').onclick = () => salvarMetaSimples('semanal');
+if(document.getElementById('btn-salvar-meta-diaria')) document.getElementById('btn-salvar-meta-diaria').onclick = () => salvarMetaSimples('diaria');
+
+// --- ATUALIZAR INTERFACE DE PROGRESSO ---
+function atualizarProgressoMeta(tipo) {
+    const meta = parseFloat(localStorage.getItem(`config_meta_${tipo === 'diario' ? 'diaria' : tipo}`)) || 0;
+    const lucro = calcularLucroParaMeta(tipo); // Aquela função que já criamos
+    const falta = meta - lucro;
+    const container = document.getElementById(`progresso-${tipo}`);
+
+    if (!container) return;
+
+    if (tipo === 'diario') {
+        const cor = falta <= 0 ? "#4ade80" : "#fbbf24";
+        const msg = falta <= 0 ? "🎉 META BATIDA!" : "Meta não batida";
+        container.innerHTML = `<h2 style="color:${cor}">${msg}</h2><p>Lucro hoje: R$ ${lucro.toFixed(2)}</p><p>Faltam: R$ ${falta > 0 ? falta.toFixed(2) : '0,00'}</p>`;
+    } else {
+        container.innerHTML = `
+            <p>Sua meta: <strong>R$ ${meta.toFixed(2)}</strong></p>
+            <p>Lucro acumulado: <span style="color:#4ade80">R$ ${lucro.toFixed(2)}</span></p>
+            <h3 style="margin-top:10px; color:#fbbf24">${falta <= 0 ? "🎉 Meta Concluída!" : "Faltam: R$ " + falta.toFixed(2)}</h3>
+        `;
+    }
+}
+
+// --- LOGICA ESPECIFICA: META POR DATA E VALOR ---
+document.getElementById('btn-salvar-meta-data').onclick = () => {
+    const titulo = document.getElementById('meta-data-titulo').value;
+    const valor = parseFloat(document.getElementById('meta-data-valor').value);
+    const dataLimite = document.getElementById('meta-data-limite').value;
+
+    if(!titulo || !valor || !dataLimite) return alert("Preencha tudo!");
+
+    const lista = getData('metas_por_data');
+    lista.push({ id: Date.now(), titulo, valor, dataLimite });
+    setData('metas_por_data', lista);
+
+    renderizarMetasPorData();
+    // Limpar campos
+    document.getElementById('meta-data-titulo').value = '';
+    document.getElementById('meta-data-valor').value = '';
+	atualizarPainelResultado();
+};
+
+/*function renderizarMetasPorData() {
+    const lista = getData('metas_por_data');
+    const container = document.getElementById('lista-metas-data');
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    container.innerHTML = lista.map(m => {
+        const alvo = new Date(m.dataLimite + "T00:00:00");
+        const dias = Math.ceil((alvo - hoje) / (1000 * 60 * 60 * 24));
+        const diaria = dias > 0 ? (m.valor / dias) : m.valor;
+
+        return `
+            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue)">
+                <strong>${m.titulo}</strong> - R$ ${m.valor.toFixed(2)}
+                <p style="font-size:13px; margin:5px 0;">Data: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange)">Faltam ${dias} dias | Diária necessária: <strong>R$ ${diaria.toFixed(2)}</strong></p>
+            </div>
+        `;
+    }).join('');
+}*/
+
+function renderizarMetasPorData() {
+    const lista = getData('metas_por_data');
+    const container = document.getElementById('lista-metas-data');
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    if (lista.length === 0) {
+        container.innerHTML = '<p style="opacity:0.5; text-align:center; padding:20px;">Nenhuma meta agendada.</p>';
+        return;
+    }
+
+    // Variável para acumular a soma de todas as parcelas diárias
+    let esforçoDiarioTotal = 0;
+
+    // Gerar o HTML de cada card e calcular a soma
+    const htmlCards = lista.map(m => {
+        const alvo = new Date(m.dataLimite + "T00:00:00");
+        const diffMs = alvo - hoje;
+        const dias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        
+        // Cálculo da parcela individual (apenas se a meta não venceu)
+        const parcelaIndividual = dias > 0 ? (m.valor / dias) : 0;
+        
+        // Soma ao total acumulado
+        if (dias > 0) {
+            esforçoDiarioTotal += parcelaIndividual;
+        }
+
+        return `
+            <div style="background:var(--card); padding:15px; border-radius:12px; margin-bottom:10px; border-left:5px solid var(--blue); position:relative;">
+                <button onclick="excluirMetaPorData(${m.id})" style="position:absolute; top:10px; right:10px; background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer;">&times;</button>
+                
+                <strong style="color:var(--white); display:block; margin-bottom:5px;">${m.titulo}</strong>
+                <p style="font-size:13px; margin:2px 0; opacity:0.8;">Total: R$ ${m.valor.toFixed(2)} | Alvo: ${new Date(m.dataLimite).toLocaleDateString('pt-BR')}</p>
+                <p style="color:var(--orange); font-size:13px; font-weight:bold;">Parcela desta meta: R$ ${parcelaIndividual.toFixed(2)}/dia</p>
+            </div>
+        `;
+    }).join('');
+
+    // Criar o Card de Resumo (O Esforço Total)
+    const cardResumo = `
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px solid var(--blue); padding: 20px; border-radius: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <p style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 10px;">Esforço Diário Total</p>
+            <h2 style="color: #4ade80; font-size: 28px; margin: 0;">R$ ${esforçoDiarioTotal.toFixed(2)}</h2>
+            <p style="font-size: 12px; opacity: 0.6; margin-top: 10px;">Lucro necessário hoje para bater as ${lista.length} metas</p>
+        </div>
+    `;
+
+    container.innerHTML = cardResumo + htmlCards;
+}
+
+
+// NOVA FUNÇÃO PARA EXCLUIR
+function excluirMetaPorData(id) {
+    if (!confirm("Deseja excluir esta meta permanentemente?")) return;
+    
+    let lista = getData('metas_por_data');
+    // Filtra a lista removendo o item com o ID clicado
+    lista = lista.filter(meta => meta.id !== id);
+    
+    setData('metas_por_data', lista);
+    renderizarMetasPorData(); // Atualiza a tela imediatamente
+}
+
+
+// --- BOTÕES VOLTAR ---
+document.getElementById('voltar-meta-mensal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-semanal').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-diaria').onclick = () => showScreen(screens.metas);
+document.getElementById('voltar-meta-data').onclick = () => showScreen(screens.metas);
+
+function calcularLucroParaMeta(tipo) {
+    const hoje = new Date();
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastTotal = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outrosTotal = JSON.parse(localStorage.getItem('outros_custos')) || [];
+    
+    let ganhos = 0;
+    let custos = 0;
+
+    // Regra de Filtro por período
+    const filtrarData = (dataStr) => {
+        const [d, m, y] = dataStr.split('/').map(Number);
+        const dataItem = new Date(y, m - 1, d);
+        
+        if (tipo === 'mensal') {
+            return dataItem.getMonth() === hoje.getMonth() && dataItem.getFullYear() === hoje.getFullYear();
+        }
+        if (tipo === 'semanal') {
+            const primeiro = hoje.getDate() - hoje.getDay();
+            const dataInicioSemana = new Date(new Date().setDate(primeiro));
+            dataInicioSemana.setHours(0,0,0,0);
+            return dataItem >= dataInicioSemana;
+        }
+        if (tipo === 'diario' || tipo === 'diaria') {
+            return dataStr === hoje.toLocaleDateString('pt-BR');
+        }
+        return false;
+    };
+
+    // 1. Soma Ganhos do histórico (Apurado)
+    Object.keys(historico).filter(filtrarData).forEach(data => {
+        historico[data].sessoes.forEach(s => ganhos += s.apurado);
+    });
+
+    // 2. Soma Custos (Combustível + Outros)
+    abastTotal.filter(a => filtrarData(a.data)).forEach(a => custos += a.valor);
+    outrosTotal.filter(c => filtrarData(c.data)).forEach(c => custos += c.valor);
+
+    return ganhos - custos; // Este é o LUCRO REAL
+}
+
+function atualizarResumoGeral() {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    let totalApurado = 0;
+
+    // Somar apurado
+    Object.values(historico).forEach(dia => {
+        dia.sessoes.forEach(s => {
+            totalApurado += s.apurado;
+        });
+    });
+
+    // Somar custos
+    const totalAbastecimento = abastecimentos.reduce((acc, a) => acc + a.valor, 0);
+    const totalOutros = outros.reduce((acc, c) => acc + c.valor, 0);
+
+    const totalCustos = totalAbastecimento + totalOutros;
+
+    // Calcular lucro
+    const totalLucro = totalApurado - totalCustos;
+
+    // Atualizar interface
+    const apuradoEl = document.getElementById('total-apurado-geral');
+    const lucroEl = document.getElementById('total-lucro-geral');
+
+    if(apuradoEl){
+        apuradoEl.textContent = `R$ ${totalApurado.toFixed(2).replace('.',',')}`;
+    }
+
+    if(lucroEl){
+        lucroEl.textContent = `R$ ${totalLucro.toFixed(2).replace('.',',')}`;
+    }
+}
+
+function atualizarPainelResultados() {
+
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
+
+    function normalizarData(data) {
+        const d = new Date(data);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    function dataBRparaDate(dataBR) {
+        const [dia, mes, ano] = dataBR.split('/').map(Number);
+        return new Date(ano, mes - 1, dia);
+    }
+
+    function inicioDaSemana(dataBase) {
+        const d = new Date(dataBase);
+        const diaSemana = d.getDay(); // 0=domingo, 1=segunda...
+        const ajuste = diaSemana === 0 ? 6 : diaSemana - 1; // semana começa na segunda
+        d.setDate(d.getDate() - ajuste);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    function inicioDoMes(dataBase) {
+        return new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
+    }
+
+    function formatarMoeda(valor) {
+        return `R$ ${valor.toFixed(2).replace('.', ',')}`;
+    }
+
+    function calcularResumo(dataInicio = null, dataFim = null) {
+        let totalApurado = 0;
+        let totalKM = 0;
+        let totalMin = 0;
+        let totalCustos = 0;
+
+        Object.keys(historico).forEach(data => {
+            const dataDia = normalizarData(dataBRparaDate(data));
+
+            const dentroDoPeriodo =
+                (!dataInicio || dataDia >= dataInicio) &&
+                (!dataFim || dataDia <= dataFim);
+
+            if (!dentroDoPeriodo) return;
+
+            historico[data].sessoes.forEach(s => {
+                totalApurado += s.apurado;
+                totalKM += (s.kF - s.kI);
+
+                const [hI, mI] = s.hI.split(':').map(Number);
+                const [hF, mF] = s.hF.split(':').map(Number);
+
+                let diff = (hF * 60 + mF) - (hI * 60 + mI);
+                if (diff < 0) diff += 1440;
+
+                totalMin += diff;
+            });
+        });
+
+        abastecimentos.forEach(a => {
+            const dataCusto = normalizarData(dataBRparaDate(a.data));
+            const dentroDoPeriodo =
+                (!dataInicio || dataCusto >= dataInicio) &&
+                (!dataFim || dataCusto <= dataFim);
+
+            if (dentroDoPeriodo) totalCustos += a.valor;
+        });
+
+        outros.forEach(c => {
+            const dataCusto = normalizarData(dataBRparaDate(c.data));
+            const dentroDoPeriodo =
+                (!dataInicio || dataCusto >= dataInicio) &&
+                (!dataFim || dataCusto <= dataFim);
+
+            if (dentroDoPeriodo) totalCustos += c.valor;
+        });
+
+        const totalLucro = totalApurado - totalCustos;
+        const horas = totalMin / 60;
+
+        return {
+            totalApurado,
+            totalCustos,
+            totalLucro,
+            totalKM,
+            horaApurado: horas > 0 ? totalApurado / horas : 0,
+            horaLucro: horas > 0 ? totalLucro / horas : 0,
+            kmApurado: totalKM > 0 ? totalApurado / totalKM : 0,
+            kmLucro: totalKM > 0 ? totalLucro / totalKM : 0
+        };
+    }
+
+    function montarCard(titulo, resumo) {
+        return `
+            <h3 style="margin-bottom:10px;">${titulo}</h3>
 
             <p>Apurado Total:</p>
-            <h2 id="painel-apurado-total" style="color:#60a5fa;">R$ 0,00</h2>
+            <h2 style="color:#60a5fa;">${formatarMoeda(resumo.totalApurado)}</h2>
 
             <p>Lucro Total:</p>
-            <h2 id="painel-lucro-total" style="color:#4ade80;">R$ 0,00</h2>
+            <h2 style="color:#4ade80;">${formatarMoeda(resumo.totalLucro)}</h2>
 
             <p>Custos Totais:</p>
-            <h2 id="painel-custos-total" style="color:#f87171;">R$ 0,00</h2>
+            <h2 style="color:#f87171;">${formatarMoeda(resumo.totalCustos)}</h2>
 
             <hr>
 
             <p>KM Total Rodado:</p>
-            <h2 id="painel-km-total">0 km</h2>
-			
-			<hr>
-			
-			<p>Média por Hora (Apurado):</p>
-            <h2 id="painel-hora-apurado">R$ 0,00/h</h2>
-			
-			<p>Apurado por KM:</p>
-            <h2 id="painel-apurado-km">R$ 0,00/km</h2>
-			
-			<hr>
-			
-			<p>Média por Hora (Lucro):</p>
-            <h2 id="painel-hora-lucro">R$ 0,00/h</h2>
-			
+            <h2>${resumo.totalKM} km</h2>
+
+            <hr>
+
+            <p>Média por Hora (Apurado):</p>
+            <h2>${formatarMoeda(resumo.horaApurado)}/h</h2>
+
+            <p>Apurado por KM:</p>
+            <h2>${formatarMoeda(resumo.kmApurado)}/km</h2>
+
+            <hr>
+
+            <p>Média por Hora (Lucro):</p>
+            <h2>${formatarMoeda(resumo.horaLucro)}/h</h2>
+
             <p>Lucro por KM:</p>
-            <h2 id="painel-lucro-km">R$ 0,00/km</h2>
+            <h2>${formatarMoeda(resumo.kmLucro)}/km</h2>
+        `;
+    }
 
-            
-            <hr>            
+    const hoje = normalizarData(new Date());
+    const semana = inicioDaSemana(hoje);
+    const mes = inicioDoMes(hoje);
 
-        </div> 
-		
-		
+    const resumoTotal = calcularResumo();
+    const resumoSemanal = calcularResumo(semana, hoje);
+    const resumoMensal = calcularResumo(mes, hoje);
+    const resumoDiario = calcularResumo(hoje, hoje);
 
-    </div>
-	
-	<button id="voltar-acompanhando" class="btn btn-warning">
-        ← Voltar
-    </button>
+    document.getElementById('painel-total').innerHTML = montarCard('📊 Total', resumoTotal);
+    document.getElementById('painel-semanal').innerHTML = montarCard('🗓️ Semanal', resumoSemanal);
+    document.getElementById('painel-mensal').innerHTML = montarCard('📅 Mensal', resumoMensal);
+    document.getElementById('painel-diario').innerHTML = montarCard('☀️ Diário', resumoDiario);
+}
 
-</div>
+function atualizarPainelResultados(tipo = 'total') {
 
-<!-- TELA: MENU DE METAS -->
-<section class="screen hidden" id="screen-metas">
-  <h2 class="screen-title">Metas</h2>
-  <div class="screen-actions">
-    <button class="btn btn-primary" id="btn-meta-mensal">📅 Meta Mensal</button>
-    <button class="btn btn-primary" id="btn-meta-semanal">🗓️ Meta Semanal</button>
-    <button class="btn btn-primary" id="btn-meta-diaria">☀️ Meta Diária</button>
-    <button class="btn btn-primary" id="btn-meta-por-data">🎯 Meta por Data e Valor</button>
-  </div>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
+    const historico = JSON.parse(localStorage.getItem('historico_dias')) || {};
+    const abastecimentos = JSON.parse(localStorage.getItem('abastecimentos')) || [];
+    const outros = JSON.parse(localStorage.getItem('outros_custos')) || [];
 
-<!-- TELA: FORMULÁRIO META MENSAL -->
-<section class="screen hidden" id="screen-meta-mensal">
-  <h2 class="screen-title">Meta Mensal</h2>
-  <div class="form-group">
-    <label>Valor da Meta Mensal (R$)</label>
-    <input type="number" id="input-meta-mensal" placeholder="Ex: 5000.00">
-  </div>  
-  <button class="btn btn-primary" id="btn-salvar-meta-mensal">Definir Meta</button>
-  
-  <!-- Onde o cálculo "Faltam R$ XXX" aparece -->
-  <div id="progresso-mensal" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; min-height: 50px;">
-    <p style="opacity:0.5; text-align:center;">Aguardando definição de meta...</p>
-  </div>
-  
-  <button class="btn btn-back" id="voltar-metas-mensal">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
+    function normalizarData(data) {
+        const d = new Date(data);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
 
-<!-- TELA: FORMULÁRIO META SEMANAL -->
-<section class="screen hidden" id="screen-meta-semanal">
-  <h2 class="screen-title">Meta Semanal</h2>
-  <div class="form-group">
-    <label>Valor da Meta Semanal (R$)</label>
-    <input type="number" id="input-meta-semanal" placeholder="Ex: 1500.00">
-  </div>
-  <button class="btn btn-primary" id="btn-salvar-meta-semanal">Definir Meta</button>
-  
-  <div id="progresso-semanal" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; min-height: 50px;">
-    <p style="opacity:0.5; text-align:center;">Aguardando definição de meta...</p>
-  </div>
-  
-  <button class="btn btn-back" id="voltar-metas-semanal">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
+    function dataBRparaDate(dataBR) {
+        const [dia, mes, ano] = dataBR.split('/').map(Number);
+        return new Date(ano, mes - 1, dia);
+    }
 
-<!-- TELA: FORMULÁRIO META DIÁRIA -->
-<section class="screen hidden" id="screen-meta-diaria">
-  <h2 class="screen-title">Meta Diária</h2>
-  <div class="form-group">
-    <label>Meta para Hoje (R$)</label>
-    <input type="number" id="input-meta-diaria" placeholder="Ex: 300.00">
-  </div>
-  <button class="btn btn-primary" id="btn-salvar-meta-diaria">Definir Meta</button>
-  
-  <div id="progresso-diario" class="resumo-dia" style="margin-top:20px; background: var(--card); padding:15px; border-radius:12px; text-align: center; min-height: 50px;">
-    <p style="opacity:0.5;">Aguardando definição de meta...</p>
-  </div>
-  
-  <button class="btn btn-back" id="voltar-metas-diaria">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
+    function inicioDaSemana(dataBase) {
+        const d = new Date(dataBase);
+        const diaSemana = d.getDay();
+        const ajuste = diaSemana === 0 ? 6 : diaSemana - 1;
+        d.setDate(d.getDate() - ajuste);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
 
-<!-- TELA: FORMULÁRIO META POR DATA E VALOR -->
-<section class="screen hidden" id="screen-meta-data-valor">
-  <h2 class="screen-title">Meta por Data</h2>
-  <div class="form-group">
-    <label>Título (Ex: Cartão Visa)</label>
-    <input type="text" id="meta-data-titulo" placeholder="Nome da meta">
-  </div>
-  <div class="form-group">
-    <label>Valor Alvo (R$)</label>
-    <input type="number" id="meta-data-valor" placeholder="1350.00">
-  </div>
-  <div class="form-group">
-    <label>Data Limite</label>
-    <input type="date" id="meta-data-limite">
-  </div>
-  <button class="btn btn-primary" id="btn-salvar-meta-data">Criar Meta Especial</button>
+    function inicioDoMes(dataBase) {
+        return new Date(dataBase.getFullYear(), dataBase.getMonth(), 1);
+    }
 
-  <div id="lista-metas-data" style="margin-top:20px;">
-    <!-- Lista de metas individuais aparecerá aqui via renderizarMetasPorData() -->
-  </div>
+    function formatarMoeda(valor) {
+        return `R$ ${valor.toFixed(2).replace('.', ',')}`;
+    }
 
-  <button class="btn btn-back" id="voltar-metas-data">← Voltar</button>
-  <button class="btn btn-home" onclick="showScreen(screens.menu)">🏠 Menu Inicial</button>
-</section>
+    const hoje = normalizarData(new Date());
+    let dataInicio = null;
+    let dataFim = hoje;
+    let titulo = '📊 Resultado Total';
 
-</main>
+    if (tipo === 'diario') {
+        dataInicio = hoje;
+        titulo = '☀️ Resultado Diário';
+    } else if (tipo === 'semanal') {
+        dataInicio = inicioDaSemana(hoje);
+        titulo = '🗓️ Resultado Semanal';
+    } else if (tipo === 'mensal') {
+        dataInicio = inicioDoMes(hoje);
+        titulo = '📅 Resultado Mensal';
+    }
 
-  <!-- Links COMPLETOS para as bibliotecas de exportação (CORREÇÃO AQUI) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    let totalApurado = 0;
+    let totalKM = 0;
+    let totalMin = 0;
+    let totalCustos = 0;
 
-<script src="app.js"></script>
+    Object.keys(historico).forEach(data => {
+        const dataDia = normalizarData(dataBRparaDate(data));
 
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('Service Worker registrado!', reg))
-        .catch(err => console.log('Erro ao registrar Service Worker', err));
+        const dentroDoPeriodo =
+            (dataInicio === null || dataDia >= dataInicio) &&
+            dataDia <= dataFim;
+
+        if (!dentroDoPeriodo) return;
+
+        historico[data].sessoes.forEach(s => {
+            totalApurado += s.apurado;
+            totalKM += (s.kF - s.kI);
+
+            const [hI, mI] = s.hI.split(':').map(Number);
+            const [hF, mF] = s.hF.split(':').map(Number);
+
+            let diff = (hF * 60 + mF) - (hI * 60 + mI);
+            if (diff < 0) diff += 1440;
+
+            totalMin += diff;
+        });
     });
-  }
-</script>
 
-</body>
-</html>
+    abastecimentos.forEach(a => {
+        const dataCusto = normalizarData(dataBRparaDate(a.data));
+
+        const dentroDoPeriodo =
+            (dataInicio === null || dataCusto >= dataInicio) &&
+            dataCusto <= dataFim;
+
+        if (dentroDoPeriodo) totalCustos += a.valor;
+    });
+
+    outros.forEach(c => {
+        const dataCusto = normalizarData(dataBRparaDate(c.data));
+
+        const dentroDoPeriodo =
+            (dataInicio === null || dataCusto >= dataInicio) &&
+            dataCusto <= dataFim;
+
+        if (dentroDoPeriodo) totalCustos += c.valor;
+    });
+
+    const totalLucro = totalApurado - totalCustos;
+    const horas = totalMin / 60;
+
+    const horaApurado = horas > 0 ? totalApurado / horas : 0;
+    const horaLucro = horas > 0 ? totalLucro / horas : 0;
+    const kmApurado = totalKM > 0 ? totalApurado / totalKM : 0;
+    const kmLucro = totalKM > 0 ? totalLucro / totalKM : 0;
+
+    const container = document.getElementById('resultado-acompanhamento');
+
+    container.innerHTML = `
+        <h3 style="margin-bottom:10px;">${titulo}</h3>
+
+        <p>Apurado Total:</p>
+        <h2 style="color:#60a5fa;">${formatarMoeda(totalApurado)}</h2>
+
+        <p>Lucro Total:</p>
+        <h2 style="color:#4ade80;">${formatarMoeda(totalLucro)}</h2>
+
+        <p>Custos Totais:</p>
+        <h2 style="color:#f87171;">${formatarMoeda(totalCustos)}</h2>
+
+        <hr>
+
+        <p>KM Total Rodado:</p>
+        <h2>${totalKM} km</h2>
+
+        <hr>
+
+        <p>Média por Hora (Apurado):</p>
+        <h2>${formatarMoeda(horaApurado)}/h</h2>
+
+        <p>Apurado por KM:</p>
+        <h2>${formatarMoeda(kmApurado)}/km</h2>
+
+        <hr>
+
+        <p>Média por Hora (Lucro):</p>
+        <h2>${formatarMoeda(horaLucro)}/h</h2>
+
+        <p>Lucro por KM:</p>
+        <h2>${formatarMoeda(kmLucro)}/km</h2>
+    `;
+}
